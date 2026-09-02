@@ -2,6 +2,7 @@ import { LEVELS } from "@/game/levels";
 import { THEMES } from "@/game/themes";
 import type { ThemeId } from "@/game/themes";
 import { RewardBar } from "./RewardBar";
+import { savedSitting } from "@/game/save";
 
 interface LevelSelectProps {
   onSelectLevel: (levelId: number) => void;
@@ -48,7 +49,9 @@ export function LevelSelect({ onSelectLevel, onCupboard, autoHelper, onToggleHel
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 flex items-center">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl w-full mx-auto">
-          {LEVELS.map(level => (
+          {LEVELS.map(level => {
+            const sitting = savedSitting(level);
+            return (
             <button
               key={level.id}
               onClick={() => onSelectLevel(level.id)}
@@ -65,8 +68,19 @@ export function LevelSelect({ onSelectLevel, onCupboard, autoHelper, onToggleHel
               <div className="text-sm font-bold text-gray-600 mt-1">
                 {level.cols}×{level.rows} plates
               </div>
+              {sitting !== null && (
+                <div
+                  className="absolute -top-3 -right-2 bg-white rounded-full px-3 py-1 shadow font-black text-pink-500 text-lg flex items-center gap-1"
+                  aria-label={`Game in progress, ${sitting} cakes served`}
+                >
+                  <span aria-hidden="true">▶️</span>
+                  <span aria-hidden="true">🎂</span>
+                  {sitting}
+                </div>
+              )}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 

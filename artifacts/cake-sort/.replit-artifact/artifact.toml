@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Cake Sort Fun"
+version = "1.0.0"
+id = "artifacts/cake-sort"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20353
+
+[services.development]
+run = "pnpm --filter @workspace/cake-sort run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/cake-sort", "run", "build" ]
+publicDir = "artifacts/cake-sort/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20353"
+BASE_PATH = "/"

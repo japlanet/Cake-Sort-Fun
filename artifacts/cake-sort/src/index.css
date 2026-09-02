@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Nunito", "Comic Sans MS", cursive, sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #fff7ed;
+  color: #4a2c17;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.screen {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.safe-top { padding-top: max(0.75rem, env(safe-area-inset-top)); }
+.safe-bottom { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+
+.game-bg {
+  position: relative;
+  isolation: isolate;
+}
+.game-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(255, 255, 255, 0.3) 0%, transparent 40%);
+}
+
+.game-btn {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  touch-action: manipulation;
+}
+.game-btn:active { transform: scale(0.94); }
+
+/* Plates */
+.plate {
+  position: relative;
+  border-radius: 9999px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  touch-action: none;
+}
+.plate.is-target {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.9), 0 0 24px rgba(52, 211, 153, 0.6);
+}
+.plate.is-hint {
+  animation: hint-pulse 1.1s ease-in-out infinite alternate;
+}
+@keyframes hint-pulse {
+  from { box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.55); }
+  to   { box-shadow: 0 0 0 9px rgba(250, 204, 21, 0.9), 0 0 22px rgba(250, 204, 21, 0.7); }
+}
+.plate.is-serving {
+  animation: serve-pop 0.52s ease-in forwards;
+  z-index: 5;
+}
+@keyframes serve-pop {
+  0%   { transform: scale(1); opacity: 1; filter: brightness(1); }
+  35%  { transform: scale(1.22) rotate(-4deg); opacity: 1; filter: brightness(1.15); }
+  100% { transform: scale(0.2) rotate(8deg); opacity: 0; }
+}
+.plate.is-nope {
+  animation: wiggle 0.45s ease-in-out;
+}
+@keyframes wiggle {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px) rotate(-3deg); }
+  50% { transform: translateX(6px) rotate(3deg); }
+  75% { transform: translateX(-4px) rotate(-2deg); }
+}
+.plate.is-popped .cake-svg {
+  animation: pop-in 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes pop-in {
+  0% { transform: scale(0.4); }
+  100% { transform: scale(1); }
+}
+.plate.is-helped .cake-svg {
+  animation: helped-glow 0.7s ease-in-out;
+}
+@keyframes helped-glow {
+  0%   { filter: brightness(1); transform: scale(1); }
+  50%  { filter: brightness(1.6) saturate(1.4); transform: scale(1.1); }
+  100% { filter: brightness(1); transform: scale(1); }
+}
+
+/* Flying slices */
+.flying {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 20;
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.3, 0.9, 0.4, 1.05);
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.25));
+}
+
+/* Chef Bear */
+.helper-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.helper-bear {
+  animation: bear-pop 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+}
+@keyframes bear-pop {
+  0%   { transform: translateY(30px) scale(0.3); opacity: 0; }
+  60%  { transform: translateY(-8px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.sparkle {
+  position: absolute;
+  animation: sparkle-spin 1s ease-in-out infinite;
+}
+@keyframes sparkle-spin {
+  0%   { transform: rotate(0deg) translateX(var(--r)) scale(0.6); opacity: 0.4; }
+  50%  { transform: rotate(180deg) translateX(var(--r)) scale(1.2); opacity: 1; }
+  100% { transform: rotate(360deg) translateX(var(--r)) scale(0.6); opacity: 0.4; }
+}
+
+/* Tray */
+.tray-cake {
+  touch-action: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  cursor: grab;
+}
+.tray-cake.is-selected { transform: translateY(-6px) scale(1.06); }
+.tray-cake.is-dragging { opacity: 0.25; }
+.tray-cake.is-new .cake-svg { animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.3));
+}
+
+/* Modals */
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bounce-in { animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti-piece {
+  position: fixed;
+  animation: confetti-fall linear forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+@keyframes star-in {
+  0% { transform: scale(0) rotate(-30deg); }
+  70% { transform: scale(1.3) rotate(10deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.star-in { animation: star-in 0.5s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

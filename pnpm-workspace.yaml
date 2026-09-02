@@ -1,0 +1,28 @@
+# Packages must have been published for at least a day before pnpm will install
+# them (supply-chain defence, same policy as the Tile Match workspace).
+minimumReleaseAge: 1440
+
+minimumReleaseAgeExclude:
+  - '@replit/*'
+
+packages:
+  - artifacts/*
+
+catalog:
+  '@replit/vite-plugin-cartographer': ^0.5.1
+  '@replit/vite-plugin-dev-banner': ^0.1.1
+  '@replit/vite-plugin-runtime-error-modal': ^0.0.6
+  '@tailwindcss/vite': ^4.1.14
+  '@types/node': ^25.3.3
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  '@vitejs/plugin-react': ^5.0.4
+  react: 19.1.0
+  react-dom: 19.1.0
+  tailwindcss: ^4.1.14
+  vite: ^7.3.0
+
+autoInstallPeers: false
+
+onlyBuiltDependencies:
+  - esbuild

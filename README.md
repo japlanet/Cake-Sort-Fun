@@ -7,8 +7,13 @@ A gentle Cake Sort style puzzle for a 4-5 year old on an iPad. No reading needed
 - A plate full of one flavour is served. Play is endless: pick Easy, Medium or Hard and keep
   baking. Every ten cakes in a sitting gets a little confetti.
 - **Chef Bear** finishes the cake closest to done whenever the board is nearly full, so the
-  game never gets stuck. The 🐻 button calls him early (with a short cooldown). The
-  automatic help can be switched off on the home screen for an older child.
+  game never gets stuck. He lives behind the tray: asleep while there is room, watching as
+  plates fill, and waving with a bell when he could help. Tapping him or the 🐻 button calls
+  him early (with a short cooldown). The automatic help can be switched off on the home
+  screen for an older child.
+- All sound is synthesised in the browser (`src/audio/engine.ts`): a plop for placing, a
+  whoosh for sliding slices, bells for serving, a hummed "hm-mm" for Chef Bear, a fanfare
+  every ten cakes, and a soft background tune. Effects and music have separate toggles.
 - A game in progress is saved per difficulty, so Home, a refresh, or the iPad dropping the tab
   in the background all resume where he left off. The menu shows a ▶️ badge on a saved game.
 - Installs to the iPad Home Screen with a proper icon and plays offline after the first visit

@@ -44,6 +44,13 @@ interface Drag {
   target: number | null;
 }
 
+/** The part of a drag React needs to render; coordinates stay in a ref. */
+interface DragView {
+  trayIndex: number;
+  moved: boolean;
+  target: number | null;
+}
+
 function wait(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
@@ -79,13 +86,11 @@ export function GamePage({
   const [showComplete, setShowComplete] = useState(false);
   const [boardFull, setBoardFull] = useState(false);
   const [pendingRewards, setPendingRewards] = useState<Reward[]>([]);
-  const [drag, setDrag] = useState<Drag | null>(null);
-  // Mirror of `drag` that is always current, so a fast flick still places the cake.
+  // Drag coordinates live in a ref and move the ghost cake directly; React only
+  // re-renders when the drop target changes, which keeps dragging smooth.
+  const [drag, setDrag] = useState<DragView | null>(null);
   const dragRef = useRef<Drag | null>(null);
-  const updateDrag = useCallback((next: Drag | null) => {
-    dragRef.current = next;
-    setDrag(next);
-  }, []);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
   const [cellSize, setCellSize] = useState(96);
   const areaRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -281,6 +286,11 @@ export function GamePage({
 
   const ghostSize = cellSize;
 
+  const ghostTransform = useCallback(
+    (x: number, y: number) => `translate(${x - ghostSize / 2}px, ${y - ghostSize * 0.95}px)`,
+    [ghostSize],
+  );
+
   const findTarget = useCallback(
     (clientX: number, clientY: number): number | null => {
       const el = boardRef.current;
@@ -310,19 +320,27 @@ export function GamePage({
       if (busy) return;
       e.currentTarget.setPointerCapture(e.pointerId);
       setSelected(index);
-      updateDrag({ trayIndex: index, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, moved: false, target: null });
+      dragRef.current = { trayIndex: index, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, moved: false, target: null };
+      setDrag({ trayIndex: index, moved: false, target: null });
     },
-    [busy, updateDrag],
+    [busy],
   );
 
   const onTrayPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      const prev = dragRef.current;
-      if (!prev) return;
-      const moved = prev.moved || Math.hypot(e.clientX - prev.startX, e.clientY - prev.startY) > TAP_SLOP;
-      updateDrag({ ...prev, x: e.clientX, y: e.clientY, moved, target: moved ? findTarget(e.clientX, e.clientY) : null });
+      const d = dragRef.current;
+      if (!d) return;
+      d.x = e.clientX;
+      d.y = e.clientY;
+      const moved = d.moved || Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > TAP_SLOP;
+      const target = moved ? findTarget(e.clientX, e.clientY) : null;
+      const changed = moved !== d.moved || target !== d.target;
+      d.moved = moved;
+      d.target = target;
+      if (ghostRef.current) ghostRef.current.style.transform = ghostTransform(d.x, d.y);
+      if (changed) setDrag({ trayIndex: d.trayIndex, moved, target });
     },
-    [findTarget, updateDrag],
+    [findTarget, ghostTransform],
   );
 
   const onTrayPointerUp = useCallback(
@@ -331,10 +349,11 @@ export function GamePage({
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {}
       const d = dragRef.current;
-      updateDrag(null);
+      dragRef.current = null;
+      setDrag(null);
       if (d && d.moved && d.target !== null) place(d.trayIndex, d.target);
     },
-    [place, updateDrag],
+    [place],
   );
 
   // -------------------------------------------------------------------------
@@ -357,7 +376,7 @@ export function GamePage({
       <div className="safe-top px-3 pb-1 flex items-center gap-2">
         <button
           onClick={onMenu}
-          className="game-btn w-14 h-14 rounded-2xl bg-white/80 shadow flex items-center justify-center text-3xl font-black border-b-4 border-gray-200 shrink-0"
+          className="game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-3xl font-black text-gray-700 shrink-0"
           aria-label="Back to levels"
         >
           ←
@@ -390,7 +409,7 @@ export function GamePage({
 
         <button
           onClick={handleToggleSound}
-          className="game-btn w-14 h-14 rounded-2xl bg-white/80 shadow flex items-center justify-center text-2xl border-b-4 border-gray-200 shrink-0"
+          className="game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-2xl shrink-0"
           aria-label={soundEnabled ? "Turn sound off" : "Turn sound on"}
         >
           <span role="img" aria-hidden="true">{soundEnabled ? "🔊" : "🔇"}</span>
@@ -399,8 +418,8 @@ export function GamePage({
         <button
           onClick={callHelper}
           disabled={!bellReady}
-          className={`game-btn w-16 h-14 rounded-2xl shadow flex items-center justify-center text-3xl border-b-4 shrink-0 ${
-            bellReady ? "bg-amber-300 border-amber-500" : "bg-gray-200 border-gray-300 opacity-60"
+          className={`game-btn candy w-16 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0 ${
+            bellReady ? "bg-gradient-to-b from-amber-300 to-amber-400 candy-amber" : "bg-gray-200 opacity-60"
           }`}
           aria-label="Ring the bell for Chef Bear"
         >
@@ -419,14 +438,20 @@ export function GamePage({
           {theme.decor.map((d, i) => (
             <span
               key={i}
-              className="absolute text-6xl opacity-15"
-              style={{ left: `${10 + i * 35}%`, top: `${15 + (i % 2) * 55}%` }}
+              className="decor absolute"
+              style={{
+                left: `${[4, 88, 6, 90, 2, 92][i % 6]}%`,
+                top: `${[8, 14, 48, 52, 84, 82][i % 6]}%`,
+                fontSize: 56 + (i % 3) * 12,
+                animationDelay: `${i * 0.7}s`,
+                animationDuration: `${5 + (i % 3)}s`,
+              }}
             >
               {d}
             </span>
           ))}
         </div>
-        <div className={`${theme.panel} rounded-3xl p-3 shadow-inner backdrop-blur-sm`}>
+        <div className="board-cloth rounded-3xl p-4" style={{ ["--cloth" as string]: theme.cloth }}>
           <BoardView
             board={board}
             cellSize={cellSize}
@@ -444,7 +469,7 @@ export function GamePage({
 
       {/* Tray */}
       <div className="safe-bottom px-3 pt-2">
-        <div className={`${theme.panel} rounded-3xl px-4 pt-4 pb-3 shadow max-w-xl mx-auto`}>
+        <div className="tray-wood rounded-3xl px-4 pt-4 pb-3 max-w-xl mx-auto">
           <Tray
             tray={tray}
             capacity={level.capacity}
@@ -460,10 +485,11 @@ export function GamePage({
       </div>
 
       {/* Dragged cake */}
-      {drag?.moved && tray[drag.trayIndex] && (
+      {drag?.moved && tray[drag.trayIndex] && dragRef.current && (
         <div
+          ref={ghostRef}
           className="drag-ghost"
-          style={{ left: drag.x - ghostSize / 2, top: drag.y - ghostSize * 0.95, width: ghostSize, height: ghostSize }}
+          style={{ transform: ghostTransform(dragRef.current.x, dragRef.current.y), width: ghostSize, height: ghostSize }}
         >
           <CakeView cake={tray[drag.trayIndex]} capacity={level.capacity} size={ghostSize} />
         </div>

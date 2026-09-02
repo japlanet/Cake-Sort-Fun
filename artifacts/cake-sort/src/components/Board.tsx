@@ -1,8 +1,33 @@
+import { memo } from "react";
 import type { RefObject } from "react";
 import type { Board, Flavor } from "@/game/types";
 import { Plate } from "./Plate";
 import { FlyingSlices } from "./FlyingSlices";
 import { HelperOverlay } from "./HelperOverlay";
+
+const BURST = ["✨", "⭐", "🎉", "✨", "💖", "⭐", "✨", "🎊"];
+
+/** Sparkles that fly out of a plate as its cake is served. */
+function ServeBurst({ x, y, size }: { x: number; y: number; size: number }) {
+  return (
+    <div className="burst" style={{ left: x, top: y }}>
+      {BURST.map((b, i) => (
+        <span
+          key={i}
+          className="burst-piece"
+          style={{
+            fontSize: size * 0.22,
+            ["--a" as string]: `${i * 45 + 20}deg`,
+            ["--d" as string]: `${size * 0.7}px`,
+            animationDelay: `${i * 0.03}s`,
+          }}
+        >
+          {b}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export type Anim =
   | { type: "move"; key: number; from: number; to: number; flavor: Flavor; count: number }
@@ -28,7 +53,7 @@ interface BoardViewProps {
   boardRef: RefObject<HTMLDivElement | null>;
 }
 
-export function BoardView({
+export const BoardView = memo(function BoardView({
   board, cellSize, gap, targetIndex, hintIndex, nopeIndex, poppedIndex, anim, onPlateTap, boardRef,
 }: BoardViewProps) {
   const width = board.cols * cellSize + (board.cols - 1) * gap;
@@ -76,6 +101,15 @@ export function BoardView({
         />
       )}
 
+      {anim?.type === "serve" && (
+        <ServeBurst
+          key={anim.key}
+          x={cellCenter(board, anim.index, cellSize, gap).x}
+          y={cellCenter(board, anim.index, cellSize, gap).y}
+          size={cellSize}
+        />
+      )}
+
       {anim?.type === "helper" && (
         <HelperOverlay
           key={anim.key}
@@ -86,4 +120,4 @@ export function BoardView({
       )}
     </div>
   );
-}
+});

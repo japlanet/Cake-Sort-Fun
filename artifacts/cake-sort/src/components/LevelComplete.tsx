@@ -16,11 +16,11 @@ export function LevelComplete({ levelId, totalLevels, helperUses, onNextLevel, o
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm p-4">
       <Confetti />
-      <div className="bounce-in bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center border-4 border-yellow-300">
+      <div className="bounce-in modal-card rounded-3xl p-8 max-w-sm w-full text-center border-4 border-yellow-300">
         <div className="text-7xl mb-3" role="img" aria-label="celebration">
           {isLastLevel ? "🏆" : "🎂"}
         </div>
-        <h2 className="text-3xl font-black text-pink-500 mb-1">{isLastLevel ? "Super Baker!" : "Yummy!"}</h2>
+        <h2 className="title-candy text-4xl mb-1">{isLastLevel ? "Super Baker!" : "Yummy!"}</h2>
         <p className="text-lg font-bold text-teal-600 mb-5">
           {isLastLevel ? "You baked every cake!" : "All the cakes are served!"}
         </p>
@@ -41,7 +41,7 @@ export function LevelComplete({ levelId, totalLevels, helperUses, onNextLevel, o
           {!isLastLevel && (
             <button
               onClick={onNextLevel}
-              className="game-btn w-full py-4 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-black text-2xl shadow-lg border-b-4 border-rose-600 active:border-b-0"
+              className="game-btn candy candy-rose w-full py-4 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-black text-2xl"
               aria-label="Play next level"
             >
               ▶️ Next
@@ -49,14 +49,14 @@ export function LevelComplete({ levelId, totalLevels, helperUses, onNextLevel, o
           )}
           <button
             onClick={onRetry}
-            className="game-btn w-full py-3 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-400 text-white font-black text-xl shadow-lg border-b-4 border-sky-600 active:border-b-0"
+            className="game-btn candy candy-sky w-full py-3 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-400 text-white font-black text-xl"
             aria-label="Play this level again"
           >
             🔄 Again
           </button>
           <button
             onClick={onMenu}
-            className="game-btn w-full py-3 rounded-2xl bg-gradient-to-r from-violet-400 to-purple-400 text-white font-black text-xl shadow-lg border-b-4 border-violet-600 active:border-b-0"
+            className="game-btn candy candy-violet w-full py-3 rounded-2xl bg-gradient-to-r from-violet-400 to-purple-400 text-white font-black text-xl"
             aria-label="Go to level select"
           >
             🏠 Home

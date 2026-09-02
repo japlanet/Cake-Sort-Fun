@@ -37,7 +37,9 @@ export function FlyingSlices({ from, to, flavor, count, capacity, size }: Flying
         transform: `translate(${pos.x - size / 2}px, ${pos.y - size / 2}px)`,
       }}
     >
-      <CakeView cake={{ id: "flying", groups: [{ flavor, count }] }} capacity={capacity} size={size} showPlate={false} />
+      <div className="flying-hop">
+        <CakeView cake={{ id: "flying", groups: [{ flavor, count }] }} capacity={capacity} size={size} showPlate={false} />
+      </div>
     </div>
   );
 }

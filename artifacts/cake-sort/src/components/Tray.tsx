@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Cake } from "@/game/types";
 import { CakeView } from "./CakeView";
@@ -14,7 +15,7 @@ interface TrayProps {
   onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => void;
 }
 
-export function Tray({
+export const Tray = memo(function Tray({
   tray, capacity, size, selected, draggingIndex, disabled, onPointerDown, onPointerMove, onPointerUp,
 }: TrayProps) {
   return (
@@ -51,4 +52,4 @@ export function Tray({
       })}
     </div>
   );
-}
+});

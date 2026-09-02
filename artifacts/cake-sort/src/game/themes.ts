@@ -10,6 +10,8 @@ export interface Theme {
   panel: string;
   /** Decorative emoji scattered faintly behind the board. */
   decor: string[];
+  /** Gingham tablecloth colour under the plates (rgba). */
+  cloth: string;
 }
 
 export const THEMES: Record<ThemeId, Theme> = {
@@ -19,7 +21,8 @@ export const THEMES: Record<ThemeId, Theme> = {
     emoji: "🧁",
     bg: "bg-gradient-to-br from-pink-300 via-amber-200 to-sky-300",
     panel: "bg-white/60",
-    decor: ["🧁", "🍰", "🥐"],
+    decor: ["🧁", "🍰", "🥐", "🍩", "🍪", "🎂"],
+    cloth: "rgba(255, 105, 150, 0.22)",
   },
   ocean: {
     id: "ocean",
@@ -27,7 +30,8 @@ export const THEMES: Record<ThemeId, Theme> = {
     emoji: "🌊",
     bg: "bg-gradient-to-br from-cyan-300 via-sky-300 to-blue-400",
     panel: "bg-white/60",
-    decor: ["🐟", "🐚", "🐙"],
+    decor: ["🐟", "🐚", "🐙", "🐬", "🪸", "⛵"],
+    cloth: "rgba(30, 140, 220, 0.22)",
   },
   forest: {
     id: "forest",
@@ -35,7 +39,8 @@ export const THEMES: Record<ThemeId, Theme> = {
     emoji: "🌳",
     bg: "bg-gradient-to-br from-lime-300 via-green-300 to-emerald-400",
     panel: "bg-white/60",
-    decor: ["🌲", "🍄", "🦊"],
+    decor: ["🌲", "🍄", "🦊", "🦉", "🌻", "🐿️"],
+    cloth: "rgba(40, 150, 80, 0.22)",
   },
   sunset: {
     id: "sunset",
@@ -43,7 +48,8 @@ export const THEMES: Record<ThemeId, Theme> = {
     emoji: "🌅",
     bg: "bg-gradient-to-br from-orange-300 via-rose-300 to-purple-400",
     panel: "bg-white/60",
-    decor: ["🌞", "☁️", "🦩"],
+    decor: ["🌞", "☁️", "🦩", "🌴", "🪁", "🦜"],
+    cloth: "rgba(240, 110, 60, 0.22)",
   },
   candy: {
     id: "candy",
@@ -51,7 +57,8 @@ export const THEMES: Record<ThemeId, Theme> = {
     emoji: "🍭",
     bg: "bg-gradient-to-br from-fuchsia-300 via-pink-300 to-violet-400",
     panel: "bg-white/60",
-    decor: ["🍬", "🍭", "🍩"],
+    decor: ["🍬", "🍭", "🍩", "🧁", "🍫", "🍡"],
+    cloth: "rgba(200, 60, 220, 0.2)",
   },
   space: {
     id: "space",
@@ -59,7 +66,8 @@ export const THEMES: Record<ThemeId, Theme> = {
     emoji: "🚀",
     bg: "bg-gradient-to-br from-indigo-400 via-violet-400 to-slate-700",
     panel: "bg-white/70",
-    decor: ["⭐", "🪐", "🚀"],
+    decor: ["⭐", "🪐", "🚀", "🌙", "👽", "☄️"],
+    cloth: "rgba(80, 70, 200, 0.28)",
   },
 };
 

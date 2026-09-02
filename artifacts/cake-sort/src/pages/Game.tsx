@@ -1,25 +1,28 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
-import { BoardView, cellCenter } from "@/components/Board";
-import type { Anim } from "@/components/Board";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BoardView } from "@/components/Board";
 import { Tray } from "@/components/Tray";
 import { CakeView } from "@/components/CakeView";
 import { Confetti } from "@/components/Confetti";
 import { BoardFull } from "@/components/BoardFull";
+import { ConfirmRestart } from "@/components/ConfirmRestart";
 import { RewardPopup } from "@/components/RewardPopup";
 import { RewardBar } from "@/components/RewardBar";
+import { ChefBear } from "@/components/ChefBear";
+import type { BearMood } from "@/components/ChefBear";
 import { CELEBRATE_EVERY, LEVELS } from "@/game/levels";
 import { THEMES } from "@/game/themes";
 import type { ThemeId } from "@/game/themes";
 import { rewardsBetween } from "@/game/rewards";
 import type { Reward } from "@/game/rewards";
-import { bestSpot, emptyBoard, emptyCells, generateCake, helperRescue, playTurn, removeSlices } from "@/game/engine";
-import type { Board, Cake, Flavor, LevelConfig, Step } from "@/game/types";
-import { audio } from "@/audio/engine";
-import { ChefBear } from "@/components/ChefBear";
-import type { BearMood } from "@/components/ChefBear";
+import { bestSpot, emptyBoard, emptyCells, generateCake, helperRescue, playTurn } from "@/game/engine";
+import type { Board, Cake, Flavor, LevelConfig } from "@/game/types";
 import { loadGame, storeGame } from "@/game/save";
 import type { SavedGame } from "@/game/save";
+import { audio } from "@/audio/engine";
+import { useBoardFit } from "@/hooks/useBoardFit";
+import { useTurnQueue } from "@/hooks/useTurnQueue";
+import { useCakeDrag } from "@/hooks/useCakeDrag";
+import { useStoredFlag } from "@/hooks/useStoredFlag";
 
 interface GamePageProps {
   levelId: number;
@@ -35,41 +38,23 @@ interface GamePageProps {
 const TRAY_SIZE = 3;
 const GAP = 10;
 const BELL_COOLDOWN_TURNS = 3;
-const TAP_SLOP = 10;
-/** The dragged cake sits this far above the finger (fraction of its size) so it stays visible. */
-const GHOST_LIFT = 0.3;
-
-interface Drag {
-  trayIndex: number;
-  pointerId: number;
-  startX: number;
-  startY: number;
-  x: number;
-  y: number;
-  moved: boolean;
-  target: number | null;
-}
-
-/** The part of a drag React needs to render; coordinates stay in a ref. */
-interface DragView {
-  trayIndex: number;
-  moved: boolean;
-  target: number | null;
-}
-
-interface Turn {
-  steps: Step[];
-  before: Board;
-  totalBefore: number;
-}
-
-function wait(ms: number) {
-  return new Promise<void>(resolve => setTimeout(resolve, ms));
-}
 
 function buildLevel(base: LevelConfig, shelf: Flavor[]): LevelConfig {
   const count = Math.max(2, Math.min(base.flavorCount, shelf.length));
   return { ...base, flavors: shelf.slice(0, count) };
+}
+
+function freshGame(level: LevelConfig): SavedGame {
+  const board = emptyBoard(level.rows, level.cols, level.capacity);
+  return {
+    v: 1,
+    levelId: level.id,
+    board,
+    tray: Array.from({ length: TRAY_SIZE }, () => generateCake(level, board)),
+    served: 0,
+    turns: 0,
+    bellReadyAt: 0,
+  };
 }
 
 export function GamePage({
@@ -78,30 +63,17 @@ export function GamePage({
   const level = useMemo(() => buildLevel(LEVELS.find(l => l.id === levelId) ?? LEVELS[0], shelf), [levelId, shelf]);
   const theme = THEMES[themeId];
 
-  // A game in progress is saved per difficulty and picked up again here.
-  const [saved] = useState<SavedGame>(() => {
-    const found = loadGame(level);
-    if (found) return found;
-    const board = emptyBoard(level.rows, level.cols, level.capacity);
-    return {
-      v: 1,
-      levelId: level.id,
-      board,
-      tray: Array.from({ length: TRAY_SIZE }, () => generateCake(level, board)),
-      served: 0,
-      turns: 0,
-      bellReadyAt: 0,
-    };
-  });
+  // ---- game state (a game in progress is saved per difficulty) -------------
+
+  const [saved] = useState<SavedGame>(() => loadGame(level) ?? freshGame(level));
   const savedRef = useRef<SavedGame>(saved);
   const persist = useCallback((patch: Partial<SavedGame>) => {
     savedRef.current = { ...savedRef.current, ...patch };
     storeGame(savedRef.current);
   }, []);
 
-  // The settled board is the truth; `board` is what is on screen while animations catch up.
+  // The settled board is the truth; the queue below shows it catching up.
   const logicRef = useRef<Board>(saved.board);
-  const [board, setBoard] = useState<Board>(saved.board);
   const [tray, setTray] = useState<Cake[]>(saved.tray);
   const [selected, setSelected] = useState(0);
   const [served, setServed] = useState(saved.served);
@@ -109,47 +81,20 @@ export function GamePage({
   const totalRef = useRef(totalServed);
   const [turns, setTurns] = useState(saved.turns);
   const [bellReadyAt, setBellReadyAt] = useState(saved.bellReadyAt);
-  const [anim, setAnim] = useState<Anim | null>(null);
   const [nopeIndex, setNopeIndex] = useState<number | null>(null);
-  const [poppedIndex, setPoppedIndex] = useState<number | null>(null);
   const [boardFull, setBoardFull] = useState(false);
+  const [confirmRestart, setConfirmRestart] = useState(false);
   const [pendingRewards, setPendingRewards] = useState<Reward[]>([]);
   const [celebrating, setCelebrating] = useState(false);
-  const [cellSize, setCellSize] = useState(96);
-  const areaRef = useRef<HTMLDivElement | null>(null);
-  const boardRef = useRef<HTMLDivElement | null>(null);
-  const aliveRef = useRef(true);
-  const animKey = useRef(0);
 
-  // Drag coordinates live in a ref and move the ghost cake directly; React only
-  // re-renders when the drop target changes, which keeps dragging smooth.
-  const [drag, setDrag] = useState<DragView | null>(null);
-  const dragRef = useRef<Drag | null>(null);
-  const ghostRef = useRef<HTMLDivElement | null>(null);
+  // ---- sound ----------------------------------------------------------------
 
-  // Turns queue up so the child can keep placing cakes while earlier ones animate.
-  const queueRef = useRef<Turn[]>([]);
-  const drainingRef = useRef(false);
-
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    try {
-      return localStorage.getItem("cake-sort-sound") !== "false";
-    } catch {
-      return true;
-    }
-  });
-  const [musicEnabled, setMusicEnabled] = useState(() => {
-    try {
-      return localStorage.getItem("cake-sort-music") !== "false";
-    } catch {
-      return true;
-    }
-  });
+  const [soundEnabled, setSoundEnabled] = useStoredFlag("cake-sort-sound", true);
+  const [musicEnabled, setMusicEnabled] = useStoredFlag("cake-sort-music", true);
   audio.sfxEnabled = soundEnabled;
 
   // Audio may only start inside a user gesture (iOS), so the first press on the
-  // play screen unlocks it. The tune pauses while the page is hidden and stops
-  // when leaving the game.
+  // play screen unlocks it. The tune pauses while hidden and stops on leaving.
   useEffect(() => {
     audio.setMusic(musicEnabled);
   }, [musicEnabled]);
@@ -164,135 +109,42 @@ export function GamePage({
       audio.stopMusic();
     };
   }, []);
-  const sounds = audio;
 
-  useEffect(() => {
-    aliveRef.current = true;
-    return () => {
-      aliveRef.current = false;
-    };
-  }, []);
+  // ---- animation playback ----------------------------------------------------
 
-  // Fit the board to the space between header and tray.
-  useLayoutEffect(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth - 40;
-      const h = el.clientHeight - 40;
-      const byWidth = (w - (level.cols - 1) * GAP) / level.cols;
-      const byHeight = (h - (level.rows - 1) * GAP) / level.rows;
-      setCellSize(Math.max(56, Math.min(150, Math.floor(Math.min(byWidth, byHeight)))));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [level.rows, level.cols]);
-
-  const traySize = Math.round(Math.min(cellSize * 0.95, 120));
-  const ghostSize = Math.round(cellSize * 1.1);
-
-  // -------------------------------------------------------------------------
-  // Animation playback
-  // -------------------------------------------------------------------------
-
-  const playSteps = useCallback(
-    async (steps: Step[], before: Board) => {
-      let prev = before;
-      for (const step of steps) {
-        if (!aliveRef.current) return;
-        const key = ++animKey.current;
-        const e = step.event;
-        if (e.type === "place") {
-          setBoard(step.board);
-          setPoppedIndex(e.index);
-          sounds.playPlace();
-          await wait(200);
-          setPoppedIndex(null);
-        } else if (e.type === "move") {
-          setBoard(removeSlices(prev, e.from, e.flavor, e.count));
-          setAnim({ type: "move", key, from: e.from, to: e.to, flavor: e.flavor, count: e.count });
-          sounds.playSlide();
-          await wait(340);
-          setAnim(null);
-          setBoard(step.board);
-          await wait(50);
-        } else if (e.type === "serve") {
-          setAnim({ type: "serve", key, index: e.index });
-          sounds.playServe();
-          await wait(520);
-          setAnim(null);
-          setBoard(step.board);
-          servedRef.current += 1;
-          totalRef.current += 1;
-          setServed(servedRef.current);
-          persist({ served: servedRef.current });
-          onCakeServed();
-          if (servedRef.current % CELEBRATE_EVERY === 0) {
-            sounds.playComplete();
-            setCelebrating(true);
-            setTimeout(() => aliveRef.current && setCelebrating(false), 3500);
-          }
-          await wait(60);
-        } else if (e.type === "helper") {
-          setAnim({ type: "helper", key, index: e.index, phase: "arrive" });
-          sounds.playHelper();
-          await wait(650);
-          setBoard(step.board);
-          setAnim({ type: "helper", key, index: e.index, phase: "done" });
-          await wait(600);
-          setAnim(null);
-        }
-        prev = step.board;
+  const { board, anim, poppedIndex, enqueue, aliveRef } = useTurnQueue({
+    initialBoard: saved.board,
+    onServed: () => {
+      servedRef.current += 1;
+      totalRef.current += 1;
+      setServed(servedRef.current);
+      persist({ served: servedRef.current });
+      onCakeServed();
+      if (servedRef.current % CELEBRATE_EVERY === 0) {
+        audio.playComplete();
+        setCelebrating(true);
+        setTimeout(() => aliveRef.current && setCelebrating(false), 3500);
       }
     },
-    [sounds, onCakeServed, persist],
-  );
-
-  const afterTurn = useCallback(
-    (totalBefore: number) => {
-      if (!aliveRef.current) return;
+    onTurnDone: totalBefore => {
       const crossed = rewardsBetween(totalBefore, totalRef.current);
       if (crossed.length > 0) setPendingRewards(prev => [...prev, ...crossed]);
       if (!autoHelper && emptyCells(logicRef.current).length === 0) setBoardFull(true);
     },
-    [autoHelper],
-  );
+  });
 
-  const drain = useCallback(async () => {
-    if (drainingRef.current) return;
-    drainingRef.current = true;
-    while (queueRef.current.length > 0 && aliveRef.current) {
-      const turn = queueRef.current.shift()!;
-      await playSteps(turn.steps, turn.before);
-      afterTurn(turn.totalBefore);
-    }
-    drainingRef.current = false;
-  }, [playSteps, afterTurn]);
-
-  const enqueue = useCallback(
-    (turn: Turn) => {
-      queueRef.current.push(turn);
-      void drain();
-    },
-    [drain],
-  );
-
-  // -------------------------------------------------------------------------
-  // Actions
-  // -------------------------------------------------------------------------
+  // ---- actions ---------------------------------------------------------------
 
   const nope = useCallback(
     (index: number) => {
-      sounds.playNope();
+      audio.playNope();
       setNopeIndex(index);
       setTimeout(() => aliveRef.current && setNopeIndex(null), 450);
     },
-    [sounds],
+    [aliveRef],
   );
 
-  const inputLocked = boardFull || pendingRewards.length > 0;
+  const inputLocked = boardFull || confirmRestart || pendingRewards.length > 0;
 
   const place = useCallback(
     (trayIndex: number, index: number) => {
@@ -319,9 +171,6 @@ export function GamePage({
   const emptyCount = emptyCells(logicRef.current).length;
   const boardHasCakes = emptyCount < logicRef.current.cells.length;
   const bellReady = turns >= bellReadyAt && boardHasCakes;
-  // Chef Bear dozes while there is room, watches as plates fill, and waves when he could help.
-  const bearMood: BearMood =
-    emptyCount <= level.helperThreshold + 1 && bellReady ? "ready" : emptyCount <= level.helperThreshold + 2 ? "watch" : "sleep";
 
   /** Chef Bear finishes a cake. `force` skips the bell's cooldown (the "All full" popup). */
   const callHelper = useCallback(
@@ -341,248 +190,40 @@ export function GamePage({
     [bellReady, boardHasCakes, pendingRewards.length, turns, enqueue, persist],
   );
 
-  const handleToggleSound = useCallback(() => {
+  const toggleSound = useCallback(() => {
     setSoundEnabled(prev => {
-      const next = !prev;
-      audio.sfxEnabled = next;
-      if (next) audio.playTick();
-      try {
-        localStorage.setItem("cake-sort-sound", String(next));
-      } catch {}
-      return next;
+      audio.sfxEnabled = !prev;
+      if (!prev) audio.playTick();
+      return !prev;
     });
-  }, []);
+  }, [setSoundEnabled]);
 
-  const handleToggleMusic = useCallback(() => {
-    setMusicEnabled(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem("cake-sort-music", String(next));
-      } catch {}
-      return next;
-    });
-  }, []);
+  const toggleMusic = useCallback(() => setMusicEnabled(prev => !prev), [setMusicEnabled]);
 
-  // -------------------------------------------------------------------------
-  // Aiming: any point maps to the nearest plate
-  // -------------------------------------------------------------------------
+  // ---- layout, drag and tap --------------------------------------------------
 
-  // Filled in by the drag section below; the board handlers only call it from events.
-  const latest = useRef<{
-    moveDrag: (x: number, y: number) => void;
-    finishDrag: (x: number | null, y: number | null) => void;
-  }>({ moveDrag: () => {}, finishDrag: () => {} });
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const cellSize = useBoardFit(areaRef, level.rows, level.cols, GAP);
+  const traySize = Math.round(Math.min(cellSize * 0.95, 120));
+  const ghostSize = Math.round(cellSize * 1.1);
 
-  /** Board-local coordinates of a viewport point, and whether it is over the board (with a generous margin). */
-  const toBoard = useCallback(
-    (clientX: number, clientY: number): { x: number; y: number; over: boolean } | null => {
-      const el = boardRef.current;
-      if (!el) return null;
-      const rect = el.getBoundingClientRect();
-      const margin = cellSize * 0.6;
-      const over =
-        clientX >= rect.left - margin &&
-        clientX <= rect.right + margin &&
-        clientY >= rect.top - margin &&
-        clientY <= rect.bottom + margin;
-      return { x: clientX - rect.left, y: clientY - rect.top, over };
-    },
-    [cellSize],
-  );
+  const getBoard = useCallback(() => logicRef.current, []);
+  const onTap = useCallback((index: number) => place(selected, index), [place, selected]);
 
-  /** Nearest plate to a board-local point within `reach`; `emptyOnly` skips full plates. */
-  const nearestPlate = useCallback(
-    (pt: { x: number; y: number }, reach: number, emptyOnly: boolean): number | null => {
-      const logic = logicRef.current;
-      let best: number | null = null;
-      let bestDist = Infinity;
-      logic.cells.forEach((cell, i) => {
-        if (emptyOnly && cell !== null) return;
-        const c = cellCenter(logic, i, cellSize, GAP);
-        const d = Math.hypot(c.x - pt.x, c.y - pt.y);
-        if (d < reach && d < bestDist) {
-          best = i;
-          bestDist = d;
-        }
-      });
-      return best;
-    },
-    [cellSize],
-  );
+  const { drag, ghostRef, ghostInitialTransform, onTrayPointerDown, onBoardPointerDown, onBoardPointerUp } = useCakeDrag({
+    boardRef,
+    getBoard,
+    cellSize,
+    gap: GAP,
+    ghostSize,
+    onPick: setSelected,
+    onDrop: place,
+    onTap,
+    onMiss: nope,
+  });
 
-  /** A tap anywhere on the cloth snaps to the closest empty plate, however far away it is. */
-  const handleBoardTap = useCallback(
-    (clientX: number, clientY: number) => {
-      const pt = toBoard(clientX, clientY);
-      if (!pt) return;
-      const empty = nearestPlate(pt, Infinity, true);
-      if (empty !== null) {
-        place(selected, empty);
-        return;
-      }
-      const any = nearestPlate(pt, Infinity, false);
-      if (any !== null) nope(any);
-    },
-    [toBoard, nearestPlate, place, selected, nope],
-  );
-
-  const boardPointerDown = useRef<{ x: number; y: number } | null>(null);
-  const onBoardPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current) {
-      // A drag whose release went missing: this press is where the cake lands.
-      latest.current.finishDrag(e.clientX, e.clientY);
-      boardPointerDown.current = null;
-      return;
-    }
-    boardPointerDown.current = { x: e.clientX, y: e.clientY };
-  }, []);
-  const onBoardPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      const start = boardPointerDown.current;
-      boardPointerDown.current = null;
-      if (dragRef.current) return; // a live drag is finished by the window listener
-      if (!start) return;
-      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP * 3) return;
-      handleBoardTap(e.clientX, e.clientY);
-    },
-    [handleBoardTap],
-  );
-
-  // -------------------------------------------------------------------------
-  // Dragging cakes out of the tray
-  //
-  // The drag is tracked on the window, not through pointer capture on the tray
-  // cake: capture can be lost mid-drag (the element re-renders, the browser
-  // drops it) and then the cake freezes on screen with no release ever arriving.
-  // Window listeners keep following the pointer no matter what, a mouse move
-  // with no button held counts as a release, and any new press while a drag is
-  // somehow still alive finishes that drag first.
-  // -------------------------------------------------------------------------
-
-  const ghostTransform = useCallback(
-    (x: number, y: number) => `translate(${x - ghostSize / 2}px, ${y - ghostSize / 2 - ghostSize * GHOST_LIFT}px)`,
-    [ghostSize],
-  );
-
-  /** Where the ghost cake's centre is for a finger at (x, y). */
-  const aimPoint = useCallback(
-    (clientX: number, clientY: number) => toBoard(clientX, clientY - ghostSize * GHOST_LIFT),
-    [toBoard, ghostSize],
-  );
-
-  /** Anywhere over the board counts: the cake goes to the nearest free plate. */
-  const findDropTarget = useCallback(
-    (clientX: number, clientY: number): number | null => {
-      const pt = aimPoint(clientX, clientY);
-      if (!pt || !pt.over) return null;
-      return nearestPlate(pt, Infinity, true);
-    },
-    [aimPoint, nearestPlate],
-  );
-
-  /** End the drag. With a point, drop there; without one (cancel, blur) just put the cake back. */
-  const finishDrag = useCallback(
-    (clientX: number | null, clientY: number | null) => {
-      const d = dragRef.current;
-      if (!d) return;
-      dragRef.current = null;
-      setDrag(null);
-      if (!d.moved) return;
-      if (clientX === null || clientY === null) return;
-      const target = findDropTarget(clientX, clientY);
-      if (target !== null) {
-        place(d.trayIndex, target);
-        return;
-      }
-      // Over the board but no plate is free: wiggle the closest one.
-      const pt = aimPoint(clientX, clientY);
-      if (pt && pt.over) {
-        const any = nearestPlate(pt, Infinity, false);
-        if (any !== null) nope(any);
-      }
-    },
-    [findDropTarget, place, aimPoint, nearestPlate, nope],
-  );
-
-  const moveDrag = useCallback(
-    (clientX: number, clientY: number) => {
-      const d = dragRef.current;
-      if (!d) return;
-      d.x = clientX;
-      d.y = clientY;
-      const moved = d.moved || Math.hypot(clientX - d.startX, clientY - d.startY) > TAP_SLOP;
-      const target = moved ? findDropTarget(clientX, clientY) : null;
-      const changed = moved !== d.moved || target !== d.target;
-      d.moved = moved;
-      d.target = target;
-      if (ghostRef.current) ghostRef.current.style.transform = ghostTransform(d.x, d.y);
-      if (changed) setDrag({ trayIndex: d.trayIndex, moved, target });
-    },
-    [findDropTarget, ghostTransform],
-  );
-
-  // Window listeners call whatever the latest handlers are.
-  latest.current = { moveDrag, finishDrag };
-
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const d = dragRef.current;
-      if (!d || e.pointerId !== d.pointerId) return;
-      if (e.pointerType === "mouse" && e.buttons === 0) {
-        // The button is up but no pointerup reached us: treat this as the release.
-        latest.current.finishDrag(e.clientX, e.clientY);
-        return;
-      }
-      latest.current.moveDrag(e.clientX, e.clientY);
-    };
-    const onUp = (e: PointerEvent) => {
-      const d = dragRef.current;
-      if (!d || e.pointerId !== d.pointerId) return;
-      latest.current.finishDrag(e.clientX, e.clientY);
-    };
-    const onCancel = (e: PointerEvent) => {
-      const d = dragRef.current;
-      if (!d || e.pointerId !== d.pointerId) return;
-      // Touch cancels carry no useful point; drop on the last known target instead.
-      latest.current.finishDrag(d.x, d.y);
-    };
-    const onAway = () => latest.current.finishDrag(null, null);
-    window.addEventListener("pointermove", onMove, true);
-    window.addEventListener("pointerup", onUp, true);
-    window.addEventListener("pointercancel", onCancel, true);
-    window.addEventListener("blur", onAway);
-    document.addEventListener("visibilitychange", onAway);
-    return () => {
-      window.removeEventListener("pointermove", onMove, true);
-      window.removeEventListener("pointerup", onUp, true);
-      window.removeEventListener("pointercancel", onCancel, true);
-      window.removeEventListener("blur", onAway);
-      document.removeEventListener("visibilitychange", onAway);
-    };
-  }, []);
-
-  const onTrayPointerDown = useCallback((index: number, e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!e.isPrimary) return;
-    e.preventDefault();
-    // A drag that never got its release (it can happen) ends now.
-    if (dragRef.current) latest.current.finishDrag(null, null);
-    setSelected(index);
-    dragRef.current = {
-      trayIndex: index,
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      x: e.clientX,
-      y: e.clientY,
-      moved: false,
-      target: null,
-    };
-    setDrag({ trayIndex: index, moved: false, target: null });
-  }, []);
-
-  // -------------------------------------------------------------------------
-  // Derived
-  // -------------------------------------------------------------------------
+  // ---- derived ---------------------------------------------------------------
 
   const hintIndex = useMemo(() => {
     if (inputLocked) return null;
@@ -592,15 +233,17 @@ export function GamePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputLocked, tray, selected, board]);
 
+  // Chef Bear dozes while there is room, watches as plates fill, and waves when he could help.
+  const bearMood: BearMood =
+    emptyCount <= level.helperThreshold + 1 && bellReady ? "ready" : emptyCount <= level.helperThreshold + 2 ? "watch" : "sleep";
+
+  const headerButton = "game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center shrink-0";
+
   return (
     <div className={`screen game-bg ${theme.bg}`}>
       {/* Header */}
       <div className="safe-top px-3 pb-1 flex items-center gap-2">
-        <button
-          onClick={onMenu}
-          className="game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-3xl font-black text-gray-700 shrink-0"
-          aria-label="Back to the menu"
-        >
+        <button onClick={onMenu} className={`${headerButton} text-3xl font-black text-gray-700`} aria-label="Back to the menu">
           ←
         </button>
 
@@ -616,22 +259,15 @@ export function GamePage({
           </div>
         </div>
 
-        <button
-          onClick={handleToggleSound}
-          className="game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-2xl shrink-0"
-          aria-label={soundEnabled ? "Turn sound off" : "Turn sound on"}
-        >
+        <button onClick={() => setConfirmRestart(true)} className={`${headerButton} text-2xl`} aria-label="Start a new board">
+          <span role="img" aria-hidden="true">🔄</span>
+        </button>
+        <button onClick={toggleSound} className={`${headerButton} text-2xl`} aria-label={soundEnabled ? "Turn sound off" : "Turn sound on"}>
           <span role="img" aria-hidden="true">{soundEnabled ? "🔊" : "🔇"}</span>
         </button>
-
-        <button
-          onClick={handleToggleMusic}
-          className="game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-2xl shrink-0"
-          aria-label={musicEnabled ? "Turn music off" : "Turn music on"}
-        >
+        <button onClick={toggleMusic} className={`${headerButton} text-2xl`} aria-label={musicEnabled ? "Turn music off" : "Turn music on"}>
           <span role="img" aria-hidden="true" style={{ opacity: musicEnabled ? 1 : 0.35 }}>🎵</span>
         </button>
-
         <button
           onClick={() => callHelper()}
           disabled={!bellReady}
@@ -691,33 +327,24 @@ export function GamePage({
       {/* Tray, with Chef Bear tucked behind it */}
       <div className="safe-bottom px-3 pt-2">
         <div className="relative max-w-xl mx-auto">
-          <ChefBear
-            mood={bearMood}
-            size={Math.round(traySize * 1.15)}
-            hidden={anim?.type === "helper"}
-            onTap={() => callHelper()}
-          />
+          <ChefBear mood={bearMood} size={Math.round(traySize * 1.15)} hidden={anim?.type === "helper"} onTap={() => callHelper()} />
           <div className="tray-wood relative z-10 rounded-3xl px-4 pt-4 pb-3">
-          <Tray
-            tray={tray}
-            capacity={level.capacity}
-            size={traySize}
-            selected={selected}
-            draggingIndex={drag?.moved ? drag.trayIndex : null}
-            disabled={inputLocked}
-            onPointerDown={onTrayPointerDown}
-          />
+            <Tray
+              tray={tray}
+              capacity={level.capacity}
+              size={traySize}
+              selected={selected}
+              draggingIndex={drag?.moved ? drag.trayIndex : null}
+              disabled={inputLocked}
+              onPointerDown={onTrayPointerDown}
+            />
           </div>
         </div>
       </div>
 
       {/* Dragged cake */}
-      {drag?.moved && tray[drag.trayIndex] && dragRef.current && (
-        <div
-          ref={ghostRef}
-          className="drag-ghost"
-          style={{ transform: ghostTransform(dragRef.current.x, dragRef.current.y), width: ghostSize, height: ghostSize }}
-        >
+      {drag?.moved && tray[drag.trayIndex] && (
+        <div ref={ghostRef} className="drag-ghost" style={{ transform: ghostInitialTransform(), width: ghostSize, height: ghostSize }}>
           <CakeView cake={tray[drag.trayIndex]} capacity={level.capacity} size={ghostSize} />
         </div>
       )}
@@ -727,6 +354,8 @@ export function GamePage({
       {pendingRewards.length > 0 && (
         <RewardPopup reward={pendingRewards[0]} onClose={() => setPendingRewards(prev => prev.slice(1))} />
       )}
+
+      {confirmRestart && <ConfirmRestart onConfirm={onRestart} onCancel={() => setConfirmRestart(false)} />}
 
       {boardFull && pendingRewards.length === 0 && <BoardFull onCallHelper={() => callHelper(true)} onRetry={onRestart} />}
     </div>

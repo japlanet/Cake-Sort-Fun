@@ -209,7 +209,6 @@ const FUZZ_LEVEL: LevelConfig = {
   maxSlices: 5,
   kindness: 0.5,
   helperThreshold: 1,
-  bgColor: "",
 };
 
 function checkBoard(b: Board) {

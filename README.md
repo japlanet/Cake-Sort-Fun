@@ -14,6 +14,9 @@ A gentle Cake Sort style puzzle for a 4-5 year old on an iPad. No reading needed
 - All sound is synthesised in the browser (`src/audio/engine.ts`): a plop for placing, a
   whoosh for sliding slices, bells for serving, a hummed "hm-mm" for Chef Bear, a fanfare
   every ten cakes, and a soft background tune. Effects and music have separate toggles.
+- The 🔄 button in the game starts a fresh board after a picture-only yes/no. A small "Parents"
+  link on the home screen opens a panel where holding a button for two seconds erases all
+  progress, so a child cannot do it by accident.
 - A game in progress is saved per difficulty, so Home, a refresh, or the iPad dropping the tab
   in the background all resume where he left off. The menu shows a ▶️ badge on a saved game.
 - Installs to the iPad Home Screen with a proper icon and plays offline after the first visit
@@ -34,7 +37,10 @@ Same pnpm workspace shape as Tile-Match-Fun. The game lives in `artifacts/cake-s
 | `src/game/rewards.ts` | Reward ladder, shelf rules. |
 | `src/game/themes.ts` | Backgrounds. |
 | `src/game/save.ts` | Saving and validating a game in progress. |
-| `src/pages/Game.tsx` | The play screen: drag and drop with snap-to-plate, queued animation playback, helper. |
+| `src/pages/Game.tsx` | The play screen, composed from the hooks below. |
+| `src/hooks/useCakeDrag.ts` | Drag and tap handling with snap-to-plate and lost-release recovery. |
+| `src/hooks/useTurnQueue.ts` | Queued step-by-step animation playback. |
+| `src/hooks/useBoardFit.ts` | Sizes the plates to the space available. |
 | `src/components/` | Cake drawing (SVG pie), board, tray, popups, cupboard, level select. |
 
 ## Commands

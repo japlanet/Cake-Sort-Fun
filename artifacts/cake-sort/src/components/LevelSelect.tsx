@@ -3,6 +3,8 @@ import { THEMES } from "@/game/themes";
 import type { ThemeId } from "@/game/themes";
 import { RewardBar } from "./RewardBar";
 import { savedSitting } from "@/game/save";
+import { useState } from "react";
+import { ParentPanel } from "./ParentPanel";
 
 interface LevelSelectProps {
   onSelectLevel: (levelId: number) => void;
@@ -11,6 +13,7 @@ interface LevelSelectProps {
   onToggleHelper: () => void;
   totalServed: number;
   themeId: ThemeId;
+  onEraseAll: () => void;
 }
 
 const CARD_STYLES: Record<number, string> = {
@@ -19,8 +22,11 @@ const CARD_STYLES: Record<number, string> = {
   3: "from-orange-200 to-rose-300 candy-rose",
 };
 
-export function LevelSelect({ onSelectLevel, onCupboard, autoHelper, onToggleHelper, totalServed, themeId }: LevelSelectProps) {
+export function LevelSelect({
+  onSelectLevel, onCupboard, autoHelper, onToggleHelper, totalServed, themeId, onEraseAll,
+}: LevelSelectProps) {
   const theme = THEMES[themeId];
+  const [parents, setParents] = useState(false);
 
   return (
     <div className={`screen game-bg ${theme.bg}`}>
@@ -84,7 +90,15 @@ export function LevelSelect({ onSelectLevel, onCupboard, autoHelper, onToggleHel
         </div>
       </div>
 
-      <div className="safe-bottom px-4 pt-2 flex justify-center">
+      <div className="safe-bottom px-4 pt-2 flex items-end justify-center relative">
+        <button
+          type="button"
+          onClick={() => setParents(true)}
+          className="absolute right-4 bottom-4 text-xs font-semibold text-gray-500/70 underline-offset-2 hover:underline px-2 py-1"
+          aria-label="Settings for grown-ups"
+        >
+          Parents
+        </button>
         <button
           onClick={onToggleHelper}
           className={`game-btn candy flex items-center gap-3 px-5 py-3 rounded-full font-black text-lg ${
@@ -104,6 +118,7 @@ export function LevelSelect({ onSelectLevel, onCupboard, autoHelper, onToggleHel
           </span>
         </button>
       </div>
+      {parents && <ParentPanel onClose={() => setParents(false)} onErase={onEraseAll} />}
     </div>
   );
 }

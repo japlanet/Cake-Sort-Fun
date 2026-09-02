@@ -29,7 +29,7 @@ export function RewardBar({ totalServed, compact = false }: RewardBarProps) {
         />
       </div>
       <span
-        className={`${compact ? "text-2xl" : "text-4xl"} ${next ? "" : ""}`}
+        className={compact ? "text-2xl" : "text-4xl"}
         role="img"
         aria-hidden="true"
         style={{ filter: next ? "drop-shadow(0 2px 2px rgba(0,0,0,0.25))" : undefined }}

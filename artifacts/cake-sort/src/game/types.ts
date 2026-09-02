@@ -55,7 +55,6 @@ export interface LevelConfig {
   kindness: number;
   /** Helper steps in when this many (or fewer) plates are empty after a move. */
   helperThreshold: number;
-  bgColor: string;
 }
 
 export type StepEvent =

@@ -98,3 +98,18 @@ export function clearGame(levelId: number): void {
 export function savedSitting(level: LevelConfig): number | null {
   return loadGame(level)?.served ?? null;
 }
+
+/** Every key this game writes starts with this prefix. */
+export const STORAGE_PREFIX = "cake-sort";
+
+/** Remove all saved progress: rewards, shelf, settings, and games in progress. */
+export function eraseAllProgress(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX)) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {}
+}

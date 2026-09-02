@@ -41,7 +41,6 @@ function level(
     maxSlices: cfg.capacity - 1,
     kindness: 0.85,
     helperThreshold: 1,
-    bgColor: "",
     ...cfg,
   };
 }

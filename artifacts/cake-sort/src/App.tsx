@@ -4,6 +4,7 @@ import { Cupboard } from "./components/Cupboard";
 import { GamePage } from "./pages/Game";
 import { useProgress } from "./hooks/useProgress";
 import { clearGame } from "./game/save";
+import { eraseAllProgress } from "./game/save";
 import { LEVELS } from "./game/levels";
 
 type Screen = "menu" | "game" | "cupboard";
@@ -64,6 +65,11 @@ export default function App() {
 
   const handleCakeServed = useCallback(() => addServed(1), [addServed]);
 
+  const handleEraseAll = useCallback(() => {
+    eraseAllProgress();
+    window.location.reload();
+  }, []);
+
   if (screen === "game") {
     return (
       <GamePage
@@ -101,6 +107,7 @@ export default function App() {
       onToggleHelper={handleToggleHelper}
       totalServed={progress.totalServed}
       themeId={progress.themeId}
+      onEraseAll={handleEraseAll}
     />
   );
 }

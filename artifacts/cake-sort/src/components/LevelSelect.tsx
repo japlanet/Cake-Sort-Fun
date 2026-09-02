@@ -21,12 +21,10 @@ export function LevelSelect({
   return (
     <div className={`screen game-bg ${theme.bg}`}>
       <div className="safe-top px-4 pb-2 text-center">
-        <div className="text-6xl mb-1" role="img" aria-label="cake">
+        <div className="text-6xl mb-1 bob" role="img" aria-label="cake">
           🎂
         </div>
-        <h1 className="text-4xl font-black text-pink-500" style={{ textShadow: "2px 2px 0 rgba(255,255,255,0.8)" }}>
-          Cake Sort Fun
-        </h1>
+        <h1 className="title-candy text-5xl">Cake Sort Fun</h1>
         <p className="text-base font-bold text-teal-700 mt-1 min-h-6">
           {completedLevels.size > 0 ? "⭐".repeat(Math.min(completedLevels.size, LEVELS.length)) : "Tap a level to bake!"}
         </p>
@@ -35,7 +33,7 @@ export function LevelSelect({
       <div className="px-4 pb-3 max-w-3xl w-full mx-auto">
         <button
           onClick={onCupboard}
-          className={`game-btn w-full ${theme.panel} rounded-3xl px-4 py-3 shadow flex items-center gap-3 border-b-4 border-black/10 active:border-b-0`}
+          className="game-btn candy w-full bg-white/85 rounded-3xl px-4 py-3 flex items-center gap-3"
           aria-label="Open the cupboard to see earned cakes and backgrounds"
         >
           <span className="text-4xl" role="img" aria-hidden="true">
@@ -55,7 +53,7 @@ export function LevelSelect({
               <button
                 key={level.id}
                 onClick={() => onSelectLevel(level.id)}
-                className="game-btn relative rounded-3xl p-4 shadow-lg border-b-8 active:border-b-0 bg-white/75 border-black/10"
+                className="game-btn candy level-card relative rounded-3xl p-4 bg-white/85"
                 aria-label={`Level ${level.id}, ${level.name}${done ? ", completed" : ""}`}
               >
                 <div className="text-5xl mb-1" role="img" aria-hidden="true">
@@ -81,8 +79,8 @@ export function LevelSelect({
       <div className="safe-bottom px-4 pt-2 flex justify-center">
         <button
           onClick={onToggleHelper}
-          className={`game-btn flex items-center gap-3 px-5 py-3 rounded-full shadow font-black text-lg border-b-4 active:border-b-0 ${
-            autoHelper ? "bg-amber-200 border-amber-400 text-amber-900" : "bg-gray-200 border-gray-400 text-gray-600"
+          className={`game-btn candy flex items-center gap-3 px-5 py-3 rounded-full font-black text-lg ${
+            autoHelper ? "bg-gradient-to-b from-amber-200 to-amber-300 candy-amber text-amber-900" : "bg-gray-200 text-gray-600"
           }`}
           aria-label={autoHelper ? "Chef Bear helps automatically. Tap to turn off." : "Chef Bear only helps when called. Tap to turn on."}
         >

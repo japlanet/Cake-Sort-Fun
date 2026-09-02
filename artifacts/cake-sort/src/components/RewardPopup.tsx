@@ -18,11 +18,11 @@ export function RewardPopup({ reward, onClose }: RewardPopupProps) {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-[60] bg-black/40 backdrop-blur-sm p-4">
       <Confetti />
-      <div className="bounce-in bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center border-4 border-fuchsia-300">
+      <div className="bounce-in modal-card rounded-3xl p-8 max-w-sm w-full text-center border-4 border-fuchsia-300">
         <div className="text-5xl mb-2" role="img" aria-label="gift">
           🎁
         </div>
-        <h2 className="text-3xl font-black text-fuchsia-500 mb-4">{title}</h2>
+        <h2 className="title-candy text-4xl mb-4">{title}</h2>
 
         <div className="flex justify-center mb-2">
           {isFlavor ? (
@@ -43,7 +43,7 @@ export function RewardPopup({ reward, onClose }: RewardPopupProps) {
 
         <button
           onClick={onClose}
-          className="game-btn w-full py-4 rounded-2xl bg-gradient-to-r from-fuchsia-400 to-pink-400 text-white font-black text-2xl shadow-lg border-b-4 border-fuchsia-600 active:border-b-0"
+          className="game-btn candy candy-fuchsia w-full py-4 rounded-2xl bg-gradient-to-r from-fuchsia-400 to-pink-400 text-white font-black text-2xl"
           aria-label="Hooray, keep playing"
         >
           ✨ Yay!

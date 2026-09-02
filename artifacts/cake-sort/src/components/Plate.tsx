@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Cell } from "@/game/types";
 import { CakeView } from "./CakeView";
 
@@ -15,7 +16,7 @@ interface PlateProps {
   onTap: (index: number) => void;
 }
 
-export function Plate({
+export const Plate = memo(function Plate({
   index, cake, capacity, size, isTarget, isHint, isServing, isNope, isPopped, isHelped, onTap,
 }: PlateProps) {
   const classes = [
@@ -41,4 +42,4 @@ export function Plate({
       <CakeView cake={cake} capacity={capacity} size={size} />
     </div>
   );
-}
+});

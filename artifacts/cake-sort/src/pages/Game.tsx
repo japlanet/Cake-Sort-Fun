@@ -37,6 +37,7 @@ const GHOST_LIFT = 0.3;
 
 interface Drag {
   trayIndex: number;
+  pointerId: number;
   startX: number;
   startY: number;
   x: number;
@@ -293,6 +294,12 @@ export function GamePage({
   // Aiming: any point maps to the nearest plate
   // -------------------------------------------------------------------------
 
+  // Filled in by the drag section below; the board handlers only call it from events.
+  const latest = useRef<{
+    moveDrag: (x: number, y: number) => void;
+    finishDrag: (x: number | null, y: number | null) => void;
+  }>({ moveDrag: () => {}, finishDrag: () => {} });
+
   /** Board-local coordinates of a viewport point, and whether it is over the board (with a generous margin). */
   const toBoard = useCallback(
     (clientX: number, clientY: number): { x: number; y: number; over: boolean } | null => {
@@ -348,14 +355,21 @@ export function GamePage({
 
   const boardPointerDown = useRef<{ x: number; y: number } | null>(null);
   const onBoardPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragRef.current) {
+      // A drag whose release went missing: this press is where the cake lands.
+      latest.current.finishDrag(e.clientX, e.clientY);
+      boardPointerDown.current = null;
+      return;
+    }
     boardPointerDown.current = { x: e.clientX, y: e.clientY };
   }, []);
   const onBoardPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const start = boardPointerDown.current;
       boardPointerDown.current = null;
-      if (dragRef.current) return; // a tray drag ending over the board is handled by the tray
-      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP * 3) return;
+      if (dragRef.current) return; // a live drag is finished by the window listener
+      if (!start) return;
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP * 3) return;
       handleBoardTap(e.clientX, e.clientY);
     },
     [handleBoardTap],
@@ -363,6 +377,13 @@ export function GamePage({
 
   // -------------------------------------------------------------------------
   // Dragging cakes out of the tray
+  //
+  // The drag is tracked on the window, not through pointer capture on the tray
+  // cake: capture can be lost mid-drag (the element re-renders, the browser
+  // drops it) and then the cake freezes on screen with no release ever arriving.
+  // Window listeners keep following the pointer no matter what, a mouse move
+  // with no button held counts as a release, and any new press while a drag is
+  // somehow still alive finishes that drag first.
   // -------------------------------------------------------------------------
 
   const ghostTransform = useCallback(
@@ -386,24 +407,38 @@ export function GamePage({
     [aimPoint, nearestPlate],
   );
 
-  const onTrayPointerDown = useCallback((index: number, e: ReactPointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-    setSelected(index);
-    dragRef.current = { trayIndex: index, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, moved: false, target: null };
-    setDrag({ trayIndex: index, moved: false, target: null });
-  }, []);
-
-  const onTrayPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
+  /** End the drag. With a point, drop there; without one (cancel, blur) just put the cake back. */
+  const finishDrag = useCallback(
+    (clientX: number | null, clientY: number | null) => {
       const d = dragRef.current;
       if (!d) return;
-      d.x = e.clientX;
-      d.y = e.clientY;
-      const moved = d.moved || Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > TAP_SLOP;
-      const target = moved ? findDropTarget(e.clientX, e.clientY) : null;
+      dragRef.current = null;
+      setDrag(null);
+      if (!d.moved) return;
+      if (clientX === null || clientY === null) return;
+      const target = findDropTarget(clientX, clientY);
+      if (target !== null) {
+        place(d.trayIndex, target);
+        return;
+      }
+      // Over the board but no plate is free: wiggle the closest one.
+      const pt = aimPoint(clientX, clientY);
+      if (pt && pt.over) {
+        const any = nearestPlate(pt, Infinity, false);
+        if (any !== null) nope(any);
+      }
+    },
+    [findDropTarget, place, aimPoint, nearestPlate, nope],
+  );
+
+  const moveDrag = useCallback(
+    (clientX: number, clientY: number) => {
+      const d = dragRef.current;
+      if (!d) return;
+      d.x = clientX;
+      d.y = clientY;
+      const moved = d.moved || Math.hypot(clientX - d.startX, clientY - d.startY) > TAP_SLOP;
+      const target = moved ? findDropTarget(clientX, clientY) : null;
       const changed = moved !== d.moved || target !== d.target;
       d.moved = moved;
       d.target = target;
@@ -413,29 +448,64 @@ export function GamePage({
     [findDropTarget, ghostTransform],
   );
 
-  const onTrayPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {}
+  // Window listeners call whatever the latest handlers are.
+  latest.current = { moveDrag, finishDrag };
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
       const d = dragRef.current;
-      dragRef.current = null;
-      setDrag(null);
-      if (!d || !d.moved) return;
-      const target = d.target ?? findDropTarget(e.clientX, e.clientY);
-      if (target !== null) {
-        place(d.trayIndex, target);
+      if (!d || e.pointerId !== d.pointerId) return;
+      if (e.pointerType === "mouse" && e.buttons === 0) {
+        // The button is up but no pointerup reached us: treat this as the release.
+        latest.current.finishDrag(e.clientX, e.clientY);
         return;
       }
-      // Dropped over the board but no plate is free: wiggle the closest one.
-      const pt = aimPoint(e.clientX, e.clientY);
-      if (pt && pt.over) {
-        const any = nearestPlate(pt, Infinity, false);
-        if (any !== null) nope(any);
-      }
-    },
-    [findDropTarget, place, aimPoint, nearestPlate, nope],
-  );
+      latest.current.moveDrag(e.clientX, e.clientY);
+    };
+    const onUp = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      latest.current.finishDrag(e.clientX, e.clientY);
+    };
+    const onCancel = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      // Touch cancels carry no useful point; drop on the last known target instead.
+      latest.current.finishDrag(d.x, d.y);
+    };
+    const onAway = () => latest.current.finishDrag(null, null);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onCancel, true);
+    window.addEventListener("blur", onAway);
+    document.addEventListener("visibilitychange", onAway);
+    return () => {
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onCancel, true);
+      window.removeEventListener("blur", onAway);
+      document.removeEventListener("visibilitychange", onAway);
+    };
+  }, []);
+
+  const onTrayPointerDown = useCallback((index: number, e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!e.isPrimary) return;
+    e.preventDefault();
+    // A drag that never got its release (it can happen) ends now.
+    if (dragRef.current) latest.current.finishDrag(null, null);
+    setSelected(index);
+    dragRef.current = {
+      trayIndex: index,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      x: e.clientX,
+      y: e.clientY,
+      moved: false,
+      target: null,
+    };
+    setDrag({ trayIndex: index, moved: false, target: null });
+  }, []);
 
   // -------------------------------------------------------------------------
   // Derived
@@ -548,8 +618,6 @@ export function GamePage({
             draggingIndex={drag?.moved ? drag.trayIndex : null}
             disabled={inputLocked}
             onPointerDown={onTrayPointerDown}
-            onPointerMove={onTrayPointerMove}
-            onPointerUp={onTrayPointerUp}
           />
         </div>
       </div>

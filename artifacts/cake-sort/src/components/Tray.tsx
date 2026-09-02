@@ -11,12 +11,10 @@ interface TrayProps {
   draggingIndex: number | null;
   disabled: boolean;
   onPointerDown: (index: number, e: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => void;
 }
 
 export const Tray = memo(function Tray({
-  tray, capacity, size, selected, draggingIndex, disabled, onPointerDown, onPointerMove, onPointerUp,
+  tray, capacity, size, selected, draggingIndex, disabled, onPointerDown,
 }: TrayProps) {
   return (
     <div className="flex items-end justify-center gap-4 sm:gap-6">
@@ -40,9 +38,8 @@ export const Tray = memo(function Tray({
               opacity: disabled && draggingIndex !== i ? 0.85 : undefined,
             }}
             onPointerDown={e => onPointerDown(i, e)}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
+            onDragStart={e => e.preventDefault()}
+            draggable={false}
             role="button"
             aria-label={`Cake ${i + 1} in the tray`}
           >

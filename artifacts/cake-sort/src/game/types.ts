@@ -46,8 +46,6 @@ export interface LevelConfig {
   flavors: Flavor[];
   /** How many of the shelf's flavours this level uses. */
   flavorCount: number;
-  /** Cakes to serve to finish the level. */
-  goal: number;
   /** Most distinct flavours on one new cake from the tray. */
   maxFlavorsPerCake: number;
   /** Slices on a new cake, inclusive range. Never a full plate. */

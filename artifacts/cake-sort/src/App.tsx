@@ -6,16 +6,8 @@ import { useProgress } from "./hooks/useProgress";
 
 type Screen = "menu" | "game" | "cupboard";
 
-const COMPLETED_KEY = "cake-sort-completed";
 const HELPER_KEY = "cake-sort-helper";
-
-function readCompleted(): Set<number> {
-  try {
-    const saved = localStorage.getItem(COMPLETED_KEY);
-    if (saved) return new Set(JSON.parse(saved) as number[]);
-  } catch {}
-  return new Set<number>();
-}
+const LEVEL_KEY = "cake-sort-level";
 
 function readHelper(): boolean {
   try {
@@ -25,31 +17,35 @@ function readHelper(): boolean {
   }
 }
 
+function readLevel(): number {
+  try {
+    const n = Number(localStorage.getItem(LEVEL_KEY));
+    return n >= 1 && n <= 3 ? n : 1;
+  } catch {
+    return 1;
+  }
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("menu");
-  const [currentLevel, setCurrentLevel] = useState(1);
-  const [completedLevels, setCompletedLevels] = useState<Set<number>>(readCompleted);
+  const [currentLevel, setCurrentLevel] = useState<number>(readLevel);
+  // Bumping this restarts the current game with a fresh board.
+  const [gameRun, setGameRun] = useState(0);
   const [autoHelper, setAutoHelper] = useState<boolean>(readHelper);
   const { progress, addServed, setShelf, setTheme } = useProgress();
 
   const handleSelectLevel = useCallback((levelId: number) => {
     setCurrentLevel(levelId);
+    try {
+      localStorage.setItem(LEVEL_KEY, String(levelId));
+    } catch {}
+    setGameRun(r => r + 1);
     setScreen("game");
   }, []);
 
+  const handleRestart = useCallback(() => setGameRun(r => r + 1), []);
   const handleMenu = useCallback(() => setScreen("menu"), []);
   const handleCupboard = useCallback(() => setScreen("cupboard"), []);
-
-  const handleLevelComplete = useCallback((levelId: number) => {
-    setCompletedLevels(prev => {
-      const next = new Set(prev);
-      next.add(levelId);
-      try {
-        localStorage.setItem(COMPLETED_KEY, JSON.stringify([...next]));
-      } catch {}
-      return next;
-    });
-  }, []);
 
   const handleToggleHelper = useCallback(() => {
     setAutoHelper(prev => {
@@ -66,7 +62,7 @@ export default function App() {
   if (screen === "game") {
     return (
       <GamePage
-        key={currentLevel}
+        key={`${currentLevel}-${gameRun}`}
         levelId={currentLevel}
         autoHelper={autoHelper}
         shelf={progress.shelf}
@@ -74,8 +70,7 @@ export default function App() {
         totalServed={progress.totalServed}
         onCakeServed={handleCakeServed}
         onMenu={handleMenu}
-        onNextLevel={handleSelectLevel}
-        onLevelComplete={handleLevelComplete}
+        onRestart={handleRestart}
       />
     );
   }
@@ -97,7 +92,6 @@ export default function App() {
     <LevelSelect
       onSelectLevel={handleSelectLevel}
       onCupboard={handleCupboard}
-      completedLevels={completedLevels}
       autoHelper={autoHelper}
       onToggleHelper={handleToggleHelper}
       totalServed={progress.totalServed}

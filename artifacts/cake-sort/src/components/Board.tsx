@@ -49,12 +49,11 @@ interface BoardViewProps {
   nopeIndex: number | null;
   poppedIndex: number | null;
   anim: Anim | null;
-  onPlateTap: (index: number) => void;
   boardRef: RefObject<HTMLDivElement | null>;
 }
 
 export const BoardView = memo(function BoardView({
-  board, cellSize, gap, targetIndex, hintIndex, nopeIndex, poppedIndex, anim, onPlateTap, boardRef,
+  board, cellSize, gap, targetIndex, hintIndex, nopeIndex, poppedIndex, anim, boardRef,
 }: BoardViewProps) {
   const width = board.cols * cellSize + (board.cols - 1) * gap;
   const height = board.rows * cellSize + (board.rows - 1) * gap;
@@ -85,7 +84,6 @@ export const BoardView = memo(function BoardView({
           isNope={nopeIndex === i}
           isPopped={poppedIndex === i}
           isHelped={anim?.type === "helper" && anim.index === i && anim.phase === "done"}
-          onTap={onPlateTap}
         />
       ))}
 

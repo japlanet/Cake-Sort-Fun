@@ -11,9 +11,12 @@ export interface Progress {
   totalServed: number;
   shelf: Flavor[];
   themeId: ThemeId;
+  /** Bumped when the starter set changes, so saved shelves pick up new starters once. */
+  version?: number;
 }
 
-const DEFAULT: Progress = { totalServed: 0, shelf: [...STARTER_FLAVORS], themeId: "bakery" };
+const VERSION = 2;
+const DEFAULT: Progress = { totalServed: 0, shelf: [...STARTER_FLAVORS], themeId: "bakery", version: VERSION };
 
 function isFlavorList(x: unknown): x is Flavor[] {
   return Array.isArray(x) && x.every(f => typeof f === "string");
@@ -26,9 +29,10 @@ function read(): Progress {
     const p = JSON.parse(raw) as Partial<Progress>;
     const totalServed = typeof p.totalServed === "number" && p.totalServed >= 0 ? p.totalServed : 0;
     const allowed = unlockedFlavors(totalServed);
-    const shelf = isFlavorList(p.shelf) ? p.shelf.filter(f => allowed.includes(f)) : [];
+    let shelf = isFlavorList(p.shelf) ? p.shelf.filter(f => allowed.includes(f)) : [];
+    if ((p.version ?? 1) < 2 && !shelf.includes("rainbow")) shelf = shelfWithNewFlavor(shelf, "rainbow");
     const themeId = p.themeId && THEMES[p.themeId] && unlockedThemes(totalServed).includes(p.themeId) ? p.themeId : "bakery";
-    return { totalServed, shelf: shelf.length >= 2 ? shelf : [...STARTER_FLAVORS], themeId };
+    return { totalServed, shelf: shelf.length >= 2 ? shelf : [...STARTER_FLAVORS], themeId, version: VERSION };
   } catch {
     return DEFAULT;
   }
@@ -63,7 +67,7 @@ export function useProgress() {
           if (r.kind === "flavor") shelf = shelfWithNewFlavor(shelf, r.flavor);
           else themeId = r.theme;
         }
-        return { totalServed, shelf, themeId };
+        return { totalServed, shelf, themeId, version: VERSION };
       });
     },
     [update],

@@ -17,13 +17,13 @@ test("rewards land every CAKES_PER_REWARD cakes and alternate to start", () => {
   assert.equal(REWARDS[1].at, CAKES_PER_REWARD * 2);
   assert.equal(REWARDS[0].kind, "flavor");
   assert.equal(REWARDS[1].kind, "theme");
-  assert.ok(REWARDS.some(r => r.kind === "flavor" && r.flavor === "rainbow"), "rainbow cake is earnable");
+  assert.ok(!REWARDS.some(r => r.kind === "flavor" && r.flavor === "rainbow"), "rainbow cake is a starter, not a reward");
 });
 
 test("unlocks accumulate with total cakes served", () => {
-  assert.deepEqual(unlockedFlavors(0), ["strawberry", "chocolate", "lemon", "kiwi"]);
-  assert.deepEqual(unlockedFlavors(19), ["strawberry", "chocolate", "lemon", "kiwi"]);
-  assert.deepEqual(unlockedFlavors(20), ["strawberry", "chocolate", "lemon", "kiwi", "blueberry"]);
+  assert.deepEqual(unlockedFlavors(0), ["strawberry", "chocolate", "rainbow", "lemon", "kiwi"]);
+  assert.deepEqual(unlockedFlavors(19), ["strawberry", "chocolate", "rainbow", "lemon", "kiwi"]);
+  assert.deepEqual(unlockedFlavors(20), ["strawberry", "chocolate", "rainbow", "lemon", "kiwi", "blueberry"]);
   assert.deepEqual(unlockedThemes(39), ["bakery"]);
   assert.deepEqual(unlockedThemes(40), ["bakery", "ocean"]);
 });

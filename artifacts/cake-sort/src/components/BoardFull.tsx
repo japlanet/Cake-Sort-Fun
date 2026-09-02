@@ -23,7 +23,7 @@ export function BoardFull({ onCallHelper, onRetry }: BoardFullProps) {
           <button
             onClick={onRetry}
             className="game-btn candy candy-sky w-full py-3 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-400 text-white font-black text-xl"
-            aria-label="Start this level again"
+            aria-label="Start again"
           >
             🔄 Again
           </button>

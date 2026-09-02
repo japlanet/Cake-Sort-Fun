@@ -4,20 +4,13 @@ export interface FlavorStyle {
   emoji: string;
   /** Wedge fill. */
   color: string;
-  /** Per-slice fills that override `color` (rainbow). */
-  colors?: string[];
   name: string;
 }
 
 export const FLAVORS: Record<Flavor, FlavorStyle> = {
   strawberry: { emoji: "🍓", color: "#ff8fab", name: "Strawberry" },
   chocolate: { emoji: "🍫", color: "#a9744f", name: "Chocolate" },
-  rainbow: {
-    emoji: "🌈",
-    color: "#ff7eb6",
-    colors: ["#ff6b6b", "#ffa94d", "#ffe066", "#8ce99a", "#74c0fc", "#b197fc"],
-    name: "Rainbow",
-  },
+  rainbow: { emoji: "🌈", color: "#f6ecdc", name: "Rainbow" },
   lemon: { emoji: "🍋", color: "#ffe066", name: "Lemon" },
   kiwi: { emoji: "🥝", color: "#9be564", name: "Kiwi" },
   blueberry: { emoji: "🫐", color: "#8fb8ff", name: "Blueberry" },

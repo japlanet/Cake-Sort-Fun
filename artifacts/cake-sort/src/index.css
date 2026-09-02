@@ -8,6 +8,10 @@ html, body, #root {
   height: 100%;
 }
 
+* {
+  -webkit-user-drag: none;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -60,8 +64,8 @@ body {
   touch-action: none;
 }
 .plate.is-target {
-  transform: scale(1.08);
-  box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.9), 0 0 24px rgba(52, 211, 153, 0.6);
+  transform: scale(1.1);
+  box-shadow: 0 0 0 7px rgba(52, 211, 153, 0.95), 0 0 30px rgba(52, 211, 153, 0.7), 0 6px 10px rgba(60, 30, 20, 0.22);
 }
 .plate.is-hint {
   animation: hint-pulse 1.1s ease-in-out infinite alternate;
@@ -247,6 +251,7 @@ body {
 .candy-sky { box-shadow: inset 0 -4px 0 rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.6), 0 6px 0 #0369a1, 0 10px 16px rgba(0,0,0,.2); }
 .candy-violet { box-shadow: inset 0 -4px 0 rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.6), 0 6px 0 #6d28d9, 0 10px 16px rgba(0,0,0,.2); }
 .candy-fuchsia { box-shadow: inset 0 -4px 0 rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.6), 0 6px 0 #a21caf, 0 10px 16px rgba(0,0,0,.2); }
+.candy-emerald { box-shadow: inset 0 -4px 0 rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.6), 0 6px 0 #047857, 0 10px 16px rgba(0,0,0,.2); }
 .candy-orange { box-shadow: inset 0 -4px 0 rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.6), 0 6px 0 #c2410c, 0 10px 16px rgba(0,0,0,.2); }
 
 .level-card { transition: transform 0.15s ease; }

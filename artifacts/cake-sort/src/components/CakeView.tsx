@@ -78,28 +78,27 @@ export function CakeView({ cake, capacity, size, showPlate = true, className }: 
           <path key={`t${idx}`} d={top} fill={color} stroke="#fff8f0" strokeWidth={1.8} strokeLinejoin="round" />,
         );
         clipWedges.push(<path key={`c${idx}`} d={top} />);
-        for (const f of [0.28, 0.72]) {
-          const [px, py] = polar(50, 50, R - 5, start + step * f);
-          piping.push(<circle key={`p${idx}-${f}`} cx={px} cy={py} r={2.7} fill="#fffaf3" opacity={0.95} />);
-          piping.push(<circle key={`q${idx}-${f}`} cx={px - 0.7} cy={py - 0.7} r={1.1} fill="#fff" />);
+        for (const f of [0.22, 0.78]) {
+          const [px, py] = polar(50, 50, R - 4.5, start + step * f);
+          piping.push(<circle key={`p${idx}-${f}`} cx={px} cy={py} r={2.4} fill="#fffaf3" opacity={0.95} />);
+          piping.push(<circle key={`q${idx}-${f}`} cx={px - 0.6} cy={py - 0.6} r={1} fill="#fff" />);
         }
+        // One piece of fruit (or topping) on every slice.
+        const [lx, ly] = polar(50, 50, capacity <= 4 ? 19 : 22, start + step / 2);
+        labels.push(
+          <text
+            key={`label-${idx}`}
+            x={lx}
+            y={ly}
+            fontSize={capacity <= 4 ? 15 : 12}
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.25))" }}
+          >
+            {style.emoji}
+          </text>,
+        );
       }
-      const mid = -90 + (slot + g.count / 2) * step;
-      const full = g.count === capacity;
-      const [lx, ly] = full ? [50, 50] : polar(50, 50, g.count >= capacity / 2 ? 17 : 22, mid);
-      labels.push(
-        <text
-          key={`label-${g.flavor}`}
-          x={lx}
-          y={ly}
-          fontSize={full ? 24 : g.count >= 3 ? 17 : 13}
-          textAnchor="middle"
-          dominantBaseline="central"
-          style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.25))" }}
-        >
-          {style.emoji}
-        </text>,
-      );
       slot += g.count;
     }
   }

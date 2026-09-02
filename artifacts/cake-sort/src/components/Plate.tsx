@@ -13,11 +13,10 @@ interface PlateProps {
   isNope: boolean;
   isPopped: boolean;
   isHelped: boolean;
-  onTap: (index: number) => void;
 }
 
 export const Plate = memo(function Plate({
-  index, cake, capacity, size, isTarget, isHint, isServing, isNope, isPopped, isHelped, onTap,
+  index, cake, capacity, size, isTarget, isHint, isServing, isNope, isPopped, isHelped,
 }: PlateProps) {
   const classes = [
     "plate",
@@ -35,7 +34,7 @@ export const Plate = memo(function Plate({
     <div
       className={classes}
       style={{ width: size, height: size }}
-      onPointerUp={() => onTap(index)}
+      data-plate={index}
       role="button"
       aria-label={cake ? "Plate with cake" : "Empty plate"}
     >

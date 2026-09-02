@@ -204,7 +204,6 @@ const FUZZ_LEVEL: LevelConfig = {
   capacity: 6,
   flavors: [S, C, L, K],
   flavorCount: 4,
-  goal: 999,
   maxFlavorsPerCake: 3,
   minSlices: 1,
   maxSlices: 5,

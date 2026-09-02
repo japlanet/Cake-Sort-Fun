@@ -19,7 +19,7 @@ import type { Board, Cake, Flavor, LevelConfig } from "@/game/types";
 import { loadGame, storeGame } from "@/game/save";
 import type { SavedGame } from "@/game/save";
 import { audio } from "@/audio/engine";
-import { useBoardFit } from "@/hooks/useBoardFit";
+import { useBoardFit, useTraySize } from "@/hooks/useBoardFit";
 import { useTurnQueue } from "@/hooks/useTurnQueue";
 import { useCakeDrag } from "@/hooks/useCakeDrag";
 import { useStoredFlag } from "@/hooks/useStoredFlag";
@@ -205,7 +205,7 @@ export function GamePage({
   const areaRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const cellSize = useBoardFit(areaRef, level.rows, level.cols, GAP);
-  const traySize = Math.round(Math.min(cellSize * 0.95, 120));
+  const traySize = useTraySize();
   const ghostSize = Math.round(cellSize * 1.1);
 
   const getBoard = useCallback(() => logicRef.current, []);

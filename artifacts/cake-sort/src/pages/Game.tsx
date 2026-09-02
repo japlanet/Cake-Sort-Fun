@@ -293,13 +293,22 @@ export function GamePage({
   // Aiming: any point maps to the nearest plate
   // -------------------------------------------------------------------------
 
-  /** Board-local coordinates of a viewport point. */
-  const toBoard = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
-    const el = boardRef.current;
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    return { x: clientX - rect.left, y: clientY - rect.top };
-  }, []);
+  /** Board-local coordinates of a viewport point, and whether it is over the board (with a generous margin). */
+  const toBoard = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number; over: boolean } | null => {
+      const el = boardRef.current;
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      const margin = cellSize * 0.6;
+      const over =
+        clientX >= rect.left - margin &&
+        clientX <= rect.right + margin &&
+        clientY >= rect.top - margin &&
+        clientY <= rect.bottom + margin;
+      return { x: clientX - rect.left, y: clientY - rect.top, over };
+    },
+    [cellSize],
+  );
 
   /** Nearest plate to a board-local point within `reach`; `emptyOnly` skips full plates. */
   const nearestPlate = useCallback(
@@ -321,20 +330,20 @@ export function GamePage({
     [cellSize],
   );
 
-  /** A tap anywhere on the cloth snaps to the closest empty plate. */
+  /** A tap anywhere on the cloth snaps to the closest empty plate, however far away it is. */
   const handleBoardTap = useCallback(
     (clientX: number, clientY: number) => {
       const pt = toBoard(clientX, clientY);
       if (!pt) return;
-      const empty = nearestPlate(pt, cellSize * 1.3, true);
+      const empty = nearestPlate(pt, Infinity, true);
       if (empty !== null) {
         place(selected, empty);
         return;
       }
-      const any = nearestPlate(pt, cellSize * 1.3, false);
+      const any = nearestPlate(pt, Infinity, false);
       if (any !== null) nope(any);
     },
-    [toBoard, nearestPlate, cellSize, place, selected, nope],
+    [toBoard, nearestPlate, place, selected, nope],
   );
 
   const boardPointerDown = useRef<{ x: number; y: number } | null>(null);
@@ -367,13 +376,14 @@ export function GamePage({
     [toBoard, ghostSize],
   );
 
+  /** Anywhere over the board counts: the cake goes to the nearest free plate. */
   const findDropTarget = useCallback(
     (clientX: number, clientY: number): number | null => {
       const pt = aimPoint(clientX, clientY);
-      if (!pt) return null;
-      return nearestPlate(pt, cellSize * 1.5, true);
+      if (!pt || !pt.over) return null;
+      return nearestPlate(pt, Infinity, true);
     },
-    [aimPoint, nearestPlate, cellSize],
+    [aimPoint, nearestPlate],
   );
 
   const onTrayPointerDown = useCallback((index: number, e: ReactPointerEvent<HTMLDivElement>) => {
@@ -419,12 +429,12 @@ export function GamePage({
       }
       // Dropped over the board but no plate is free: wiggle the closest one.
       const pt = aimPoint(e.clientX, e.clientY);
-      if (pt) {
-        const any = nearestPlate(pt, cellSize * 1.2, false);
+      if (pt && pt.over) {
+        const any = nearestPlate(pt, Infinity, false);
         if (any !== null) nope(any);
       }
     },
-    [findDropTarget, place, aimPoint, nearestPlate, cellSize, nope],
+    [findDropTarget, place, aimPoint, nearestPlate, nope],
   );
 
   // -------------------------------------------------------------------------

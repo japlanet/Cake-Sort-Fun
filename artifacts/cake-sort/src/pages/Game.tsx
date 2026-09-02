@@ -15,7 +15,9 @@ import { rewardsBetween } from "@/game/rewards";
 import type { Reward } from "@/game/rewards";
 import { bestSpot, emptyBoard, emptyCells, generateCake, helperRescue, playTurn, removeSlices } from "@/game/engine";
 import type { Board, Cake, Flavor, LevelConfig, Step } from "@/game/types";
-import { useGameSounds } from "@/hooks/useGameSounds";
+import { audio } from "@/audio/engine";
+import { ChefBear } from "@/components/ChefBear";
+import type { BearMood } from "@/components/ChefBear";
 import { loadGame, storeGame } from "@/game/save";
 import type { SavedGame } from "@/game/save";
 
@@ -136,7 +138,33 @@ export function GamePage({
       return true;
     }
   });
-  const sounds = useGameSounds(soundEnabled);
+  const [musicEnabled, setMusicEnabled] = useState(() => {
+    try {
+      return localStorage.getItem("cake-sort-music") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  audio.sfxEnabled = soundEnabled;
+
+  // Audio may only start inside a user gesture (iOS), so the first press on the
+  // play screen unlocks it. The tune pauses while the page is hidden and stops
+  // when leaving the game.
+  useEffect(() => {
+    audio.setMusic(musicEnabled);
+  }, [musicEnabled]);
+  useEffect(() => {
+    const unlock = () => audio.unlock();
+    const onVisibility = () => audio.setHidden(document.hidden);
+    window.addEventListener("pointerdown", unlock, true);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      document.removeEventListener("visibilitychange", onVisibility);
+      audio.stopMusic();
+    };
+  }, []);
+  const sounds = audio;
 
   useEffect(() => {
     aliveRef.current = true;
@@ -288,8 +316,12 @@ export function GamePage({
     [inputLocked, tray, turns, autoHelper, level, nope, enqueue, persist],
   );
 
-  const boardHasCakes = emptyCells(logicRef.current).length < logicRef.current.cells.length;
+  const emptyCount = emptyCells(logicRef.current).length;
+  const boardHasCakes = emptyCount < logicRef.current.cells.length;
   const bellReady = turns >= bellReadyAt && boardHasCakes;
+  // Chef Bear dozes while there is room, watches as plates fill, and waves when he could help.
+  const bearMood: BearMood =
+    emptyCount <= level.helperThreshold + 1 && bellReady ? "ready" : emptyCount <= level.helperThreshold + 2 ? "watch" : "sleep";
 
   /** Chef Bear finishes a cake. `force` skips the bell's cooldown (the "All full" popup). */
   const callHelper = useCallback(
@@ -312,8 +344,20 @@ export function GamePage({
   const handleToggleSound = useCallback(() => {
     setSoundEnabled(prev => {
       const next = !prev;
+      audio.sfxEnabled = next;
+      if (next) audio.playTick();
       try {
         localStorage.setItem("cake-sort-sound", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleToggleMusic = useCallback(() => {
+    setMusicEnabled(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("cake-sort-music", String(next));
       } catch {}
       return next;
     });
@@ -581,6 +625,14 @@ export function GamePage({
         </button>
 
         <button
+          onClick={handleToggleMusic}
+          className="game-btn candy w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-2xl shrink-0"
+          aria-label={musicEnabled ? "Turn music off" : "Turn music on"}
+        >
+          <span role="img" aria-hidden="true" style={{ opacity: musicEnabled ? 1 : 0.35 }}>🎵</span>
+        </button>
+
+        <button
           onClick={() => callHelper()}
           disabled={!bellReady}
           className={`game-btn candy w-16 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0 ${
@@ -636,9 +688,16 @@ export function GamePage({
         </div>
       </div>
 
-      {/* Tray */}
+      {/* Tray, with Chef Bear tucked behind it */}
       <div className="safe-bottom px-3 pt-2">
-        <div className="tray-wood rounded-3xl px-4 pt-4 pb-3 max-w-xl mx-auto">
+        <div className="relative max-w-xl mx-auto">
+          <ChefBear
+            mood={bearMood}
+            size={Math.round(traySize * 1.15)}
+            hidden={anim?.type === "helper"}
+            onTap={() => callHelper()}
+          />
+          <div className="tray-wood relative z-10 rounded-3xl px-4 pt-4 pb-3">
           <Tray
             tray={tray}
             capacity={level.capacity}
@@ -648,6 +707,7 @@ export function GamePage({
             disabled={inputLocked}
             onPointerDown={onTrayPointerDown}
           />
+          </div>
         </div>
       </div>
 

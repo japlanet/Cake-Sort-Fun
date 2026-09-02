@@ -48,9 +48,11 @@ import type {
 } from "./types.ts";
 
 let cakeCounter = 0;
+// Ids carry a random tail so cakes restored from a save never clash with new ones.
+const cakeSalt = Math.random().toString(36).slice(2, 7);
 export function makeCake(groups: SliceGroup[], id?: string): Cake {
   cakeCounter += 1;
-  return { id: id ?? `cake-${cakeCounter}`, groups: groups.map(g => ({ ...g })) };
+  return { id: id ?? `cake-${cakeSalt}-${cakeCounter}`, groups: groups.map(g => ({ ...g })) };
 }
 
 // ---------------------------------------------------------------------------

@@ -16,6 +16,8 @@ import type { Reward } from "@/game/rewards";
 import { bestSpot, emptyBoard, emptyCells, generateCake, helperRescue, playTurn, removeSlices } from "@/game/engine";
 import type { Board, Cake, Flavor, LevelConfig, Step } from "@/game/types";
 import { useGameSounds } from "@/hooks/useGameSounds";
+import { loadGame, storeGame } from "@/game/save";
+import type { SavedGame } from "@/game/save";
 
 interface GamePageProps {
   levelId: number;
@@ -74,18 +76,37 @@ export function GamePage({
   const level = useMemo(() => buildLevel(LEVELS.find(l => l.id === levelId) ?? LEVELS[0], shelf), [levelId, shelf]);
   const theme = THEMES[themeId];
 
+  // A game in progress is saved per difficulty and picked up again here.
+  const [saved] = useState<SavedGame>(() => {
+    const found = loadGame(level);
+    if (found) return found;
+    const board = emptyBoard(level.rows, level.cols, level.capacity);
+    return {
+      v: 1,
+      levelId: level.id,
+      board,
+      tray: Array.from({ length: TRAY_SIZE }, () => generateCake(level, board)),
+      served: 0,
+      turns: 0,
+      bellReadyAt: 0,
+    };
+  });
+  const savedRef = useRef<SavedGame>(saved);
+  const persist = useCallback((patch: Partial<SavedGame>) => {
+    savedRef.current = { ...savedRef.current, ...patch };
+    storeGame(savedRef.current);
+  }, []);
+
   // The settled board is the truth; `board` is what is on screen while animations catch up.
-  const logicRef = useRef<Board>(emptyBoard(level.rows, level.cols, level.capacity));
-  const [board, setBoard] = useState<Board>(logicRef.current);
-  const [tray, setTray] = useState<Cake[]>(() =>
-    Array.from({ length: TRAY_SIZE }, () => generateCake(level, logicRef.current)),
-  );
+  const logicRef = useRef<Board>(saved.board);
+  const [board, setBoard] = useState<Board>(saved.board);
+  const [tray, setTray] = useState<Cake[]>(saved.tray);
   const [selected, setSelected] = useState(0);
-  const [served, setServed] = useState(0);
-  const servedRef = useRef(0);
+  const [served, setServed] = useState(saved.served);
+  const servedRef = useRef(saved.served);
   const totalRef = useRef(totalServed);
-  const [turns, setTurns] = useState(0);
-  const [bellReadyAt, setBellReadyAt] = useState(0);
+  const [turns, setTurns] = useState(saved.turns);
+  const [bellReadyAt, setBellReadyAt] = useState(saved.bellReadyAt);
   const [anim, setAnim] = useState<Anim | null>(null);
   const [nopeIndex, setNopeIndex] = useState<number | null>(null);
   const [poppedIndex, setPoppedIndex] = useState<number | null>(null);
@@ -178,6 +199,7 @@ export function GamePage({
           servedRef.current += 1;
           totalRef.current += 1;
           setServed(servedRef.current);
+          persist({ served: servedRef.current });
           onCakeServed();
           if (servedRef.current % CELEBRATE_EVERY === 0) {
             sounds.playComplete();
@@ -197,7 +219,7 @@ export function GamePage({
         prev = step.board;
       }
     },
-    [sounds, onCakeServed],
+    [sounds, onCakeServed, persist],
   );
 
   const afterTurn = useCallback(
@@ -256,29 +278,36 @@ export function GamePage({
       }
       const result = playTurn(logic, index, cake, { autoHelper, helperThreshold: level.helperThreshold });
       logicRef.current = result.board;
-      setTray(prev => {
-        const next = prev.slice();
-        next[trayIndex] = generateCake(level, result.board);
-        return next;
-      });
-      setTurns(t => t + 1);
+      const nextTray = tray.slice();
+      nextTray[trayIndex] = generateCake(level, result.board);
+      setTray(nextTray);
+      setTurns(turns + 1);
+      persist({ board: result.board, tray: nextTray, turns: turns + 1 });
       enqueue({ steps: result.steps, before: logic, totalBefore: totalRef.current });
     },
-    [inputLocked, tray, autoHelper, level, nope, enqueue],
+    [inputLocked, tray, turns, autoHelper, level, nope, enqueue, persist],
   );
 
-  const bellReady = turns >= bellReadyAt && emptyCells(logicRef.current).length < logicRef.current.cells.length;
+  const boardHasCakes = emptyCells(logicRef.current).length < logicRef.current.cells.length;
+  const bellReady = turns >= bellReadyAt && boardHasCakes;
 
-  const callHelper = useCallback(() => {
-    if (!bellReady || pendingRewards.length > 0) return;
-    const logic = logicRef.current;
-    const result = helperRescue(logic);
-    if (result.steps.length === 0) return;
-    logicRef.current = result.board;
-    setBellReadyAt(turns + BELL_COOLDOWN_TURNS);
-    setBoardFull(false);
-    enqueue({ steps: result.steps, before: logic, totalBefore: totalRef.current });
-  }, [bellReady, pendingRewards.length, turns, enqueue]);
+  /** Chef Bear finishes a cake. `force` skips the bell's cooldown (the "All full" popup). */
+  const callHelper = useCallback(
+    (force = false) => {
+      if (pendingRewards.length > 0 || !boardHasCakes) return;
+      if (!force && !bellReady) return;
+      const logic = logicRef.current;
+      const result = helperRescue(logic);
+      if (result.steps.length === 0) return;
+      logicRef.current = result.board;
+      const readyAt = turns + BELL_COOLDOWN_TURNS;
+      setBellReadyAt(readyAt);
+      setBoardFull(false);
+      persist({ board: result.board, bellReadyAt: readyAt });
+      enqueue({ steps: result.steps, before: logic, totalBefore: totalRef.current });
+    },
+    [bellReady, boardHasCakes, pendingRewards.length, turns, enqueue, persist],
+  );
 
   const handleToggleSound = useCallback(() => {
     setSoundEnabled(prev => {
@@ -552,7 +581,7 @@ export function GamePage({
         </button>
 
         <button
-          onClick={callHelper}
+          onClick={() => callHelper()}
           disabled={!bellReady}
           className={`game-btn candy w-16 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0 ${
             bellReady ? "bg-gradient-to-b from-amber-300 to-amber-400 candy-amber" : "bg-gray-200 opacity-60"
@@ -639,7 +668,7 @@ export function GamePage({
         <RewardPopup reward={pendingRewards[0]} onClose={() => setPendingRewards(prev => prev.slice(1))} />
       )}
 
-      {boardFull && pendingRewards.length === 0 && <BoardFull onCallHelper={callHelper} onRetry={onRestart} />}
+      {boardFull && pendingRewards.length === 0 && <BoardFull onCallHelper={() => callHelper(true)} onRetry={onRestart} />}
     </div>
   );
 }

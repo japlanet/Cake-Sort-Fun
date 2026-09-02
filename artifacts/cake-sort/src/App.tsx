@@ -3,6 +3,8 @@ import { LevelSelect } from "./components/LevelSelect";
 import { Cupboard } from "./components/Cupboard";
 import { GamePage } from "./pages/Game";
 import { useProgress } from "./hooks/useProgress";
+import { clearGame } from "./game/save";
+import { LEVELS } from "./game/levels";
 
 type Screen = "menu" | "game" | "cupboard";
 
@@ -20,7 +22,7 @@ function readHelper(): boolean {
 function readLevel(): number {
   try {
     const n = Number(localStorage.getItem(LEVEL_KEY));
-    return n >= 1 && n <= 3 ? n : 1;
+    return LEVELS.some(l => l.id === n) ? n : LEVELS[0].id;
   } catch {
     return 1;
   }
@@ -43,7 +45,10 @@ export default function App() {
     setScreen("game");
   }, []);
 
-  const handleRestart = useCallback(() => setGameRun(r => r + 1), []);
+  const handleRestart = useCallback(() => {
+    clearGame(currentLevel);
+    setGameRun(r => r + 1);
+  }, [currentLevel]);
   const handleMenu = useCallback(() => setScreen("menu"), []);
   const handleCupboard = useCallback(() => setScreen("cupboard"), []);
 

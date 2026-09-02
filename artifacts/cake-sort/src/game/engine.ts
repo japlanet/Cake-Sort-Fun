@@ -11,20 +11,26 @@
  *    left, right) AND both already hold that flavour. Nothing spreads onto an
  *    empty plate and nothing jumps diagonally.
  *
- * 3. Direction. Slices of a flavour gather on the plate that has MORE of them.
- *    - Small pile -> big pile: as many slices as fit move (a partial move is fine,
- *      it is how a nearly-done cake gets finished).
- *    - Big pile -> small pile: only if the WHOLE big pile fits. A big pile never
- *      splits itself. This is what frees a full, mixed plate when its neighbour
- *      has room.
- *    - Equal piles: either direction is allowed; the scoring below decides.
+ * 3. Where slices go. Plates that share a flavour and touch form a run. In each
+ *    run the slices gather on the TARGET: the plate with the most of that
+ *    flavour that still has room (ties: the purer plate, then the lower index).
+ *    Slices move one plate at a time towards the target, so a slice can reach
+ *    it THROUGH a plate in between, as long as that plate holds the flavour too.
+ *    Example: A has 1 red, B has 1 red and 1 yellow, C has 4 red. A's red hops
+ *    to B, then B's two reds hop to C and finish the cake.
  *
- * 4. When several transfers are possible the engine performs the best one, then
- *    looks again, until nothing can move. "Best" prefers, in order: a move that
- *    finishes a cake, the biggest consolidation (measured as the gain in the sum
- *    of squared pile sizes), a receiver that holds only that flavour (so the
- *    pile can still be finished later), a move that empties the giving plate,
- *    the purer receiver, and a receiver that is not the cake just placed.
+ * 4. Order within a run. Plates next to the target feed it directly. A plate
+ *    further out only sends its slices inward when the plate in between could
+ *    not fill the target by itself (its "need"), and it sends only what is
+ *    needed. This keeps cakes from being mixed up for no reason: if B alone can
+ *    finish C, A keeps its slices. When both kinds of move are possible the
+ *    outer one goes first, so the slices arrive together.
+ *
+ *    A pile only splits when the part that moves outweighs what stays behind
+ *    (the sum of squared pile sizes must rise), so a big pile joins a smaller
+ *    plate only as a whole. When no run has a target with room the old pairwise
+ *    rule applies as a fallback: a small pile joins a bigger neighbour if it
+ *    fits, a big pile moves only as a whole.
  *
  * 5. A plate that holds `capacity` slices of a single flavour is served straight
  *    away and becomes empty.
@@ -235,6 +241,96 @@ export function transferCandidates(board: Board, placedIndex = -1): Transfer[] {
   return out;
 }
 
+/**
+ * Moves planned run by run (see rules 3 and 4 above). Each returned transfer is
+ * one hop towards a run's target; the score puts outer hops first.
+ */
+export function plannedTransfers(board: Board): Transfer[] {
+  const out: Transfer[] = [];
+  const flavors = new Set<Flavor>();
+  for (const cell of board.cells) if (cell) for (const g of cell.groups) flavors.add(g.flavor);
+
+  for (const flavor of flavors) {
+    const seen = new Set<number>();
+    for (let start = 0; start < board.cells.length; start++) {
+      if (seen.has(start) || cakeCount(board.cells[start], flavor) === 0) continue;
+
+      // The run: plates holding this flavour, connected by adjacency.
+      const run: number[] = [];
+      const queue = [start];
+      seen.add(start);
+      while (queue.length > 0) {
+        const i = queue.shift()!;
+        run.push(i);
+        for (const j of neighborsOf(board, i)) {
+          if (!seen.has(j) && cakeCount(board.cells[j], flavor) > 0) {
+            seen.add(j);
+            queue.push(j);
+          }
+        }
+      }
+      if (run.length < 2) continue;
+
+      // The target: most of the flavour among plates with room; purer, then lower index, breaks ties.
+      let target = -1;
+      for (const i of run) {
+        if (cakeFree(board.cells[i], board.capacity) === 0) continue;
+        if (target === -1) {
+          target = i;
+          continue;
+        }
+        const ci = cakeCount(board.cells[i], flavor);
+        const ct = cakeCount(board.cells[target], flavor);
+        const pi = ci / cakeSlices(board.cells[i]);
+        const pt = ct / cakeSlices(board.cells[target]);
+        if (ci > ct || (ci === ct && pi > pt)) target = i;
+      }
+      if (target === -1) continue;
+
+      // Shortest paths from the target through the run.
+      const parent = new Map<number, number>();
+      const depth = new Map<number, number>([[target, 0]]);
+      const order: number[] = [target];
+      for (let k = 0; k < order.length; k++) {
+        const i = order[k];
+        for (const j of neighborsOf(board, i)) {
+          if (!run.includes(j) || depth.has(j)) continue;
+          depth.set(j, depth.get(i)! + 1);
+          parent.set(j, i);
+          order.push(j);
+        }
+      }
+
+      // How many more slices each plate must gather to satisfy the plate it feeds.
+      const need = new Map<number, number>([[target, cakeFree(board.cells[target], board.capacity)]]);
+      for (const i of order) {
+        if (i === target) continue;
+        const p = parent.get(i)!;
+        const own = cakeCount(board.cells[i], flavor);
+        need.set(i, Math.min(Math.max(0, need.get(p)! - own), cakeFree(board.cells[i], board.capacity)));
+      }
+
+      for (const from of order) {
+        if (from === target) continue;
+        const to = parent.get(from)!;
+        const have = cakeCount(board.cells[from], flavor);
+        const room = cakeFree(board.cells[to], board.capacity);
+        let count = to === target ? Math.min(have, room) : Math.min(have, room, need.get(to)!);
+        // A pile only splits when the part that moves is bigger than what stays
+        // behind relative to the receiver's pile (the sum of squared pile sizes
+        // must rise). That is what stops two plates passing slices back and forth.
+        if (count < have && count <= have - cakeCount(board.cells[to], flavor)) count = 0;
+        if (count === 0) continue;
+        const receiver = board.cells[to]!;
+        const finishes = receiver.groups.length === 1 && cakeCount(receiver, flavor) + count === board.capacity;
+        const score = depth.get(from)! * 1e6 + (finishes ? 10000 : 0) + count - from * 0.001;
+        out.push({ from, to, flavor, count, score });
+      }
+    }
+  }
+  return out;
+}
+
 function pickBest(candidates: Transfer[]): Transfer {
   let best = candidates[0];
   for (const t of candidates) {
@@ -282,7 +378,8 @@ const MAX_CASCADE = 1000;
 export function settle(board: Board, steps: Step[], placedIndex = -1): Board {
   let current = board;
   for (let guard = 0; guard < MAX_CASCADE; guard++) {
-    const candidates = transferCandidates(current, placedIndex);
+    let candidates = plannedTransfers(current);
+    if (candidates.length === 0) candidates = transferCandidates(current, placedIndex);
     if (candidates.length === 0) return current;
     const best = pickBest(candidates);
     current = applyTransfer(current, best);

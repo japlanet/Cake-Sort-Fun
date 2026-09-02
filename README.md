@@ -3,7 +3,10 @@
 A gentle Cake Sort style puzzle for a 4-5 year old on an iPad. No reading needed.
 
 - Drag (or tap) a cake from the tray onto an empty plate.
-- Slices of the same flavour on neighbouring plates gather together on their own.
+- Slices of the same flavour on neighbouring plates gather together on their own. Plates that
+  touch and share a flavour form a run, and slices travel along the run, through plates in
+  between, to the plate that can best use them. A far plate only sends slices inward when the
+  nearer plates cannot fill the target by themselves.
 - A plate full of one flavour is served. Play is endless: pick Easy, Medium or Hard and keep
   baking. Every ten cakes in a sitting gets a little confetti.
 - **Chef Bear** finishes the cake closest to done whenever the board is nearly full, so the

@@ -149,20 +149,67 @@ test("the move that finishes a cake goes first, even if another merge is availab
 test("chain reaction across three plates", () => {
   // [3S] [ ] [1S+2C] [2C]  -> place 1S in the gap. (Plates 2 and 3 start
   // unsettled on purpose; in real play only the placed plate is ever unsettled.)
-  // The bigger consolidation goes first: plate 2's chocolate (purity 2/3) and
-  // plate 3's chocolate (pure) are equal piles, the purer plate 3 receives.
-  // Then 1S joins the 3S (4S) and its plate empties, so plate 2's strawberry is
-  // cut off from plate 0 and stays put.
+  // Strawberry run 0-1-2 with target plate 0, which needs 3: plate 1 alone has
+  // only 1, so plate 2's strawberry relays through plate 1 first (outer hop
+  // first), then both hop to plate 0. The two chocolate plates are then equal
+  // and both pure, so the lower index (plate 2) is the target.
   const b = board(1, 4, 6, [cake([S, 3]), null, cake([S, 1], [C, 2]), cake([C, 2])]);
   const { steps, board: after } = placeCake(b, 1, cake([S, 1]));
-  assert.deepEqual(moves(steps), ["2c 2->3", "1s 1->0"]);
-  assert.deepEqual(groupsAt(after, 0), [[S, 4]]);
+  assert.deepEqual(moves(steps), ["1s 2->1", "2s 1->0", "2c 3->2"]);
+  assert.deepEqual(groupsAt(after, 0), [[S, 5]]);
   assert.equal(after.cells[1], null);
-  assert.deepEqual(groupsAt(after, 2), [[S, 1]]);
+  assert.deepEqual(groupsAt(after, 2), [[C, 4]]);
+  assert.equal(after.cells[3], null);
   // chocolate consolidated onto exactly one plate
   const chocPlates = after.cells.filter(c => c && c.groups.some(g => g.flavor === C));
   assert.equal(chocPlates.length, 1);
   assert.equal(cakeSlices(chocPlates[0]), 4);
+});
+
+// ---------------------------------------------------------------------------
+// Relays through a plate in between
+// ---------------------------------------------------------------------------
+
+test("a slice reaches the plate that needs it through a plate in between", () => {
+  // A: 1R, B: 1R + 1Y, C: 4R. Nearest-first would send B's red to C and strand
+  // A's. Instead A's red hops to B, then B's two reds finish C.
+  const b = board(1, 3, 6, [cake([S, 1]), null, cake([S, 4])]);
+  const { steps, board: after } = placeCake(b, 1, cake([S, 1], [L, 1]));
+  assert.deepEqual(moves(steps), ["1s 0->1", "2s 1->2"]);
+  assert.equal(after.cells[2], null, "C was served");
+  assert.equal(after.cells[0], null, "A is empty");
+  assert.deepEqual(groupsAt(after, 1), [[L, 1]]);
+});
+
+test("relays chain through several plates", () => {
+  // 1R - 1R - 1R - 3R(room 3): the three singles gather as they travel. Once
+  // plate 2 holds three too, the tie goes to the lower index, so the last hop
+  // lands on plate 2; either way one full cake is served.
+  const b = board(1, 4, 6, [cake([S, 1]), cake([S, 1]), null, cake([S, 3])]);
+  const { steps, board: after } = placeCake(b, 2, cake([S, 1]));
+  assert.deepEqual(moves(steps), ["1s 0->1", "2s 1->2", "3s 3->2"]);
+  assert.equal(events(steps).filter(e => e.type === "serve").length, 1);
+  assert.ok(after.cells.every(c => c === null));
+});
+
+test("an outer plate keeps its slices when the plate in between can finish the target alone", () => {
+  // A: 2S, B: 3S + 1C, C: 4S (room 2). B has enough, so A is left pure and
+  // afterwards B's leftover strawberry joins A.
+  const b = board(1, 3, 6, [cake([S, 2]), null, cake([S, 4])]);
+  const { steps, board: after } = placeCake(b, 1, cake([S, 3], [C, 1]));
+  assert.deepEqual(moves(steps), ["2s 1->2", "1s 1->0"]);
+  assert.deepEqual(groupsAt(after, 0), [[S, 3]]);
+  assert.deepEqual(groupsAt(after, 1), [[C, 1]]);
+});
+
+test("a plate in between never splits its pile just to relay", () => {
+  // A: 3S, B: 1S + 1C, C: 5S (room 1). B alone fills C. A must not be split.
+  const b = board(1, 3, 6, [cake([S, 3]), null, cake([S, 5])]);
+  const { steps, board: after } = placeCake(b, 1, cake([S, 1], [C, 1]));
+  assert.deepEqual(moves(steps)[0], "1s 1->2");
+  assert.equal(after.cells[2], null);
+  // then A's pure 3S becomes the target for nothing (B has no S left): A keeps 3S
+  assert.deepEqual(groupsAt(after, 0), [[S, 3]]);
 });
 
 test("a served plate frees space that lets a later merge happen", () => {
@@ -258,6 +305,7 @@ test("random play: slices conserved, capacity respected, consolidation monotonic
       const after = result.board.cells.reduce((n, cell) => n + cakeSlices(cell), 0);
       assert.equal(after + servedSlices - helperAdded, before, `seed ${seed} turn ${turn}: slices conserved`);
       assert.equal(result.served, result.steps.filter(s => s.event.type === "serve").length);
+      assert.ok(result.steps.length < 200, `seed ${seed}: cascades stay short`);
       // A settled board has no legal transfer left.
       assert.deepEqual(transferCandidates(result.board), [], `seed ${seed}: board must be settled`);
       b = result.board;

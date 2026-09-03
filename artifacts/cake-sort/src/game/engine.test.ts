@@ -212,6 +212,28 @@ test("a plate in between never splits its pile just to relay", () => {
   assert.deepEqual(groupsAt(after, 0), [[S, 3]]);
 });
 
+test("a cake placed between two plates pulls from both sides", () => {
+  // A: 2R, gap, B: 2R. Place C with 2R + 2B in the gap (6-slice cakes):
+  // B's reds hop into C, then C's four reds hop into A and finish the cake.
+  const b = board(1, 3, 6, [cake([S, 2]), null, cake([S, 2])]);
+  const { steps, board: after } = placeCake(b, 1, cake([S, 2], [K, 2]));
+  assert.deepEqual(moves(steps), ["2s 2->1", "4s 1->0"]);
+  assert.equal(after.cells[0], null, "a full red cake was served");
+  assert.deepEqual(groupsAt(after, 1), [[K, 2]]);
+  assert.equal(after.cells[2], null);
+});
+
+test("the same placement with 4-slice cakes still makes one full cake", () => {
+  // The middle plate is full, so it cannot relay B's reds, but its own reds
+  // finish A.
+  const b = board(1, 3, 4, [cake([S, 2]), null, cake([S, 2])]);
+  const { steps, board: after } = placeCake(b, 1, cake([S, 2], [K, 2]));
+  assert.deepEqual(moves(steps), ["2s 1->0"]);
+  assert.equal(after.cells[0], null, "A was served");
+  assert.deepEqual(groupsAt(after, 1), [[K, 2]]);
+  assert.deepEqual(groupsAt(after, 2), [[S, 2]]);
+});
+
 test("a served plate frees space that lets a later merge happen", () => {
   // 2x2 board, capacity 4:
   // [3S] [1S placed]

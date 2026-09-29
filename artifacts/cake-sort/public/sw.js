@@ -1,40 +1,90 @@
 /*
  * Cake Sort Fun service worker: keeps the game playable with no network.
  *
+ * - On install it saves the page and everything the page needs: the built
+ *   scripts and styles (read out of index.html), the fonts (read out of the
+ *   styles), the icons and the manifest. So one visit is enough to play offline.
  * - The page itself is fetched network-first, so a new deploy shows up on the
  *   next launch when online, and the cached copy is used when offline.
  * - Built assets carry a content hash in their name, so they are cache-first.
- * - Anything else same-origin (icons, manifest) and the web fonts are served
- *   from cache while being refreshed in the background.
+ * - All the games share japlanet.github.io, and so share one set of caches.
+ *   This worker only ever deletes caches whose names start with its own
+ *   prefix, so installing or updating it never wipes another game's offline copy.
  */
-const CACHE = "cake-sort-v1";
+const PREFIX = "cake-sort-";
+const CACHE = PREFIX + "v2";
 const SCOPE = new URL(self.registration.scope).pathname;
+const EXTRAS = ["manifest.webmanifest", "favicon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+
+function sameOriginUrls(text, base, pattern) {
+  const urls = new Set();
+  for (const m of text.matchAll(pattern)) {
+    try {
+      const url = new URL(m[1], base);
+      if (url.origin === self.location.origin) urls.add(url.href);
+    } catch {}
+  }
+  return urls;
+}
+const HTML_REFS = /(?:src|href)="([^"]+)"/g;
+const CSS_REFS = /url\(\s*['"]?([^'")]+)['"]?\s*\)/g;
+
+async function precache() {
+  const cache = await caches.open(CACHE);
+  const shell = new URL(SCOPE, self.location.origin).href;
+  const page = await fetch(shell, { cache: "no-cache" });
+  if (!page.ok) throw new Error(`Could not fetch the game page: ${page.status}`);
+  const html = await page.clone().text();
+  await cache.put(shell, page);
+
+  const urls = sameOriginUrls(html, shell, HTML_REFS);
+  for (const name of EXTRAS) urls.add(new URL(name, shell).href);
+  // Fonts are named inside the stylesheets, not the page.
+  for (const href of [...urls].filter(u => u.endsWith(".css"))) {
+    try {
+      const css = await (await fetch(href)).text();
+      for (const u of sameOriginUrls(css, href, CSS_REFS)) if (u.endsWith(".woff2")) urls.add(u);
+    } catch {}
+  }
+  // Each file on its own, so one miss does not stop the rest.
+  await Promise.all([...urls].map(u => cache.add(u).catch(() => undefined)));
+}
 
 self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll([SCOPE, SCOPE + "index.html"]).catch(() => undefined)),
-  );
-  self.skipWaiting();
+  event.waitUntil(precache().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches
       .keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k.startsWith(PREFIX) && k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
 
-async function networkFirst(request, fallbackUrl) {
+/** Drop built assets that the newest page no longer uses. */
+async function pruneStale(cache, html, shell) {
+  const live = sameOriginUrls(html, shell, HTML_REFS);
+  const assets = new URL("assets/", shell).href;
+  for (const req of await cache.keys()) {
+    if (req.url.startsWith(assets) && !req.url.endsWith(".woff2") && !live.has(req.url)) await cache.delete(req);
+  }
+}
+
+async function page() {
   const cache = await caches.open(CACHE);
+  const shell = new URL(SCOPE, self.location.origin).href;
   try {
-    const fresh = await fetch(request);
-    if (fresh.ok) cache.put(fallbackUrl, fresh.clone());
+    const fresh = await fetch(shell, { cache: "no-cache" });
+    if (fresh.ok) {
+      const html = await fresh.clone().text();
+      await cache.put(shell, fresh.clone());
+      pruneStale(cache, html, shell).catch(() => undefined);
+    }
     return fresh;
   } catch {
-    const cached = (await cache.match(fallbackUrl)) || (await cache.match(SCOPE + "index.html"));
-    return cached || Response.error();
+    return (await cache.match(shell)) || (await cache.match(shell + "index.html")) || Response.error();
   }
 }
 
@@ -52,7 +102,7 @@ async function staleWhileRevalidate(request) {
   const cached = await cache.match(request);
   const refresh = fetch(request)
     .then(fresh => {
-      if (fresh.ok || fresh.type === "opaque") cache.put(request, fresh.clone());
+      if (fresh.ok) cache.put(request, fresh.clone());
       return fresh;
     })
     .catch(() => cached);
@@ -63,20 +113,13 @@ self.addEventListener("fetch", event => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(SCOPE)) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request, SCOPE));
-    return;
-  }
-  if (url.origin === self.location.origin) {
-    if (url.pathname.startsWith(SCOPE + "assets/")) {
-      event.respondWith(cacheFirst(request));
-    } else {
-      event.respondWith(staleWhileRevalidate(request));
-    }
-    return;
-  }
-  if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
+    event.respondWith(page());
+  } else if (url.pathname.startsWith(SCOPE + "assets/")) {
+    event.respondWith(cacheFirst(request));
+  } else {
     event.respondWith(staleWhileRevalidate(request));
   }
 });

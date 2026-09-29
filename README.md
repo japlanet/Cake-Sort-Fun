@@ -24,6 +24,8 @@ A gentle Cake Sort style puzzle for a 4-5 year old on an iPad. No reading needed
   in the background all resume where he left off. The menu shows a ▶️ badge on a saved game.
 - Installs to the iPad Home Screen with a proper icon and plays offline after the first visit
   (`public/manifest.webmanifest`, `public/sw.js`).
+- Fonts (Nunito and Fredoka, SIL Open Font License) are bundled with the game from `@fontsource`, so it
+  makes no requests to Google or any other site, and they work offline too.
 - Every 20 cakes served earns a reward: a new cake flavour or a new background. The 🌈 rainbow
   cake is there from the start. The **cupboard** shows everything earned; up to five cakes sit on the shelf
   and levels use the first few of them.

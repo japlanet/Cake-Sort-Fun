@@ -12,7 +12,7 @@
  *   prefix, so installing or updating it never wipes another game's offline copy.
  */
 const PREFIX = "cake-sort-";
-const CACHE = PREFIX + "v2";
+const CACHE = PREFIX + "v3";
 const SCOPE = new URL(self.registration.scope).pathname;
 const EXTRAS = ["manifest.webmanifest", "favicon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
@@ -114,6 +114,8 @@ self.addEventListener("fetch", event => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || !url.pathname.startsWith(SCOPE)) return;
+  // The "Check for update" button asks the website for the current page; never cache or answer that.
+  if (url.searchParams.has("update-check")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(page());

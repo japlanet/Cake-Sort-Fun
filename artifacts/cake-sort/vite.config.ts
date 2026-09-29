@@ -20,6 +20,8 @@ if (!basePath) {
 
 export default defineConfig({
   base: basePath,
+  // Shown as "Version from …" next to the Check for update button (src/update.ts).
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   plugins: [react(), tailwindcss(), runtimeErrorOverlay()],
   resolve: {
     alias: {

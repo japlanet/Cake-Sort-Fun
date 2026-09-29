@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { UpdateButton } from "./UpdateButton";
 
 interface ParentPanelProps {
   onClose: () => void;
@@ -63,6 +64,9 @@ export function ParentPanel({ onClose, onErase }: ParentPanelProps) {
           <span className="absolute inset-y-0 left-0 bg-rose-800/70" style={{ width: `${progress * 100}%` }} aria-hidden="true" />
           <span className="relative">{holding ? "Keep holding…" : "Hold to erase all progress"}</span>
         </button>
+        <div className="mt-3">
+          <UpdateButton />
+        </div>
         <button
           type="button"
           onClick={onClose}

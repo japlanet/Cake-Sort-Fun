@@ -63,7 +63,6 @@ export default function App() {
     });
   }, []);
 
-  const handleCakeServed = useCallback(() => addServed(1), [addServed]);
 
   const handleEraseAll = useCallback(() => {
     eraseAllProgress();
@@ -79,7 +78,7 @@ export default function App() {
         shelf={progress.shelf}
         themeId={progress.themeId}
         totalServed={progress.totalServed}
-        onCakeServed={handleCakeServed}
+        onCakesServed={addServed}
         onMenu={handleMenu}
         onRestart={handleRestart}
       />

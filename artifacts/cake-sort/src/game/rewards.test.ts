@@ -46,6 +46,13 @@ test("rewardsBetween reports exactly the thresholds crossed", () => {
   assert.deepEqual(rewardsBetween(20, 20), []);
 });
 
+test("back-to-back turns (each starting where the last ended) never repeat a reward", () => {
+  // Turns queued during animation each carry the totals either side of their own serves.
+  const totals = [18, 19, 20, 20, 21, 39, 41];
+  const seen = totals.slice(1).flatMap((after, i) => rewardsBetween(totals[i], after).map(r => r.at));
+  assert.deepEqual(seen, [20, 40]);
+});
+
 test("a new flavour goes to the front of the shelf and the shelf never overflows", () => {
   assert.deepEqual(shelfWithNewFlavor(["strawberry", "chocolate"], "rainbow"), ["rainbow", "strawberry", "chocolate"]);
   const full = shelfWithNewFlavor(["strawberry", "chocolate", "lemon", "kiwi", "blueberry"], "orange");

@@ -51,10 +51,17 @@ interface Options {
  * Window listeners keep following the pointer, a mouse move with no button
  * held counts as a release, and a fresh press while a drag is somehow still
  * alive finishes that drag first.
+ *
+ * Only the finger that picked a cake up moves it. A drag can start while
+ * another hand rests on the screen, and a second finger touching down during
+ * a drag is ignored. A primary press (no other finger down) during a drag
+ * means the dragging finger's release went missing.
  */
 export function useCakeDrag({ boardRef, getBoard, cellSize, gap, ghostSize, onPick, onDrop, onTap, onMiss }: Options) {
   const [drag, setDrag] = useState<DragView | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  /** A press on the board that may become a tap. */
+  const boardPress = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
 
   // ---- aiming --------------------------------------------------------------
@@ -200,9 +207,12 @@ export function useCakeDrag({ boardRef, getBoard, cellSize, gap, ghostSize, onPi
 
   const onTrayPointerDown = useCallback(
     (index: number, e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!e.isPrimary) return;
+      const d = dragRef.current;
+      if (d && d.pointerId !== e.pointerId && !e.isPrimary) return;
       e.preventDefault();
-      if (dragRef.current) latest.current.finishDrag(null, null);
+      if (d) latest.current.finishDrag(null, null);
+      // A hand resting on the board while a cake is picked up is not a tap.
+      boardPress.current = null;
       onPick(index);
       dragRef.current = {
         trayIndex: index,
@@ -221,23 +231,25 @@ export function useCakeDrag({ boardRef, getBoard, cellSize, gap, ghostSize, onPi
 
   // ---- taps on the board ---------------------------------------------------
 
-  const boardPress = useRef<{ x: number; y: number } | null>(null);
-
   const onBoardPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current) {
+    const d = dragRef.current;
+    if (d) {
+      // Another finger while one is dragging: leave the drag alone.
+      if (d.pointerId !== e.pointerId && !e.isPrimary) return;
       // A drag whose release went missing: this press is where the cake lands.
       latest.current.finishDrag(e.clientX, e.clientY);
       boardPress.current = null;
       return;
     }
-    boardPress.current = { x: e.clientX, y: e.clientY };
+    boardPress.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
   }, []);
 
   const onBoardPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const start = boardPress.current;
+      if (!start || start.pointerId !== e.pointerId) return;
       boardPress.current = null;
-      if (dragRef.current || !start) return;
+      if (dragRef.current) return;
       if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP * 3) return;
       const pt = toBoard(e.clientX, e.clientY);
       if (!pt) return;

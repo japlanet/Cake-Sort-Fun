@@ -3,7 +3,7 @@ interface BoardFullProps {
   onRetry: () => void;
 }
 
-/** Only shown when the automatic helper is switched off and every plate is taken. */
+/** Shown when every plate is taken: after a turn with the automatic helper off, or on resuming a full board. */
 export function BoardFull({ onCallHelper, onRetry }: BoardFullProps) {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm p-4">

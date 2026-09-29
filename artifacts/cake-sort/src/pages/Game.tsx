@@ -14,8 +14,8 @@ import { THEMES } from "@/game/themes";
 import type { ThemeId } from "@/game/themes";
 import { rewardsBetween } from "@/game/rewards";
 import type { Reward } from "@/game/rewards";
-import { bestSpot, emptyBoard, emptyCells, generateCake, helperRescue, playTurn } from "@/game/engine";
-import type { Board, Cake, Flavor, LevelConfig } from "@/game/types";
+import { bestSpot, countServed, emptyBoard, emptyCells, generateCake, helperRescue, playTurn } from "@/game/engine";
+import type { Board, Cake, Flavor, LevelConfig, Step } from "@/game/types";
 import { loadGame, storeGame } from "@/game/save";
 import type { SavedGame } from "@/game/save";
 import { audio } from "@/audio/engine";
@@ -30,7 +30,7 @@ interface GamePageProps {
   shelf: Flavor[];
   themeId: ThemeId;
   totalServed: number;
-  onCakeServed: () => void;
+  onCakesServed: (count: number) => void;
   onMenu: () => void;
   onRestart: () => void;
 }
@@ -58,7 +58,7 @@ function freshGame(level: LevelConfig): SavedGame {
 }
 
 export function GamePage({
-  levelId, autoHelper, shelf, themeId, totalServed, onCakeServed, onMenu, onRestart,
+  levelId, autoHelper, shelf, themeId, totalServed, onCakesServed, onMenu, onRestart,
 }: GamePageProps) {
   const level = useMemo(() => buildLevel(LEVELS.find(l => l.id === levelId) ?? LEVELS[0], shelf), [levelId, shelf]);
   const theme = THEMES[themeId];
@@ -76,13 +76,20 @@ export function GamePage({
   const logicRef = useRef<Board>(saved.board);
   const [tray, setTray] = useState<Cake[]>(saved.tray);
   const [selected, setSelected] = useState(0);
-  const [served, setServed] = useState(saved.served);
+  // Cakes are counted and saved as soon as a turn is worked out, so leaving
+  // mid-animation never loses them; the numbers on screen catch up as each
+  // cake is served on the board.
   const servedRef = useRef(saved.served);
   const totalRef = useRef(totalServed);
+  const [served, setServed] = useState(saved.served);
+  const shownRef = useRef(saved.served);
+  const [shownTotal, setShownTotal] = useState(totalServed);
   const [turns, setTurns] = useState(saved.turns);
   const [bellReadyAt, setBellReadyAt] = useState(saved.bellReadyAt);
   const [nopeIndex, setNopeIndex] = useState<number | null>(null);
-  const [boardFull, setBoardFull] = useState(false);
+  const nopeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // A resumed game can already be full (it was saved that way), so start in the full-board flow.
+  const [boardFull, setBoardFull] = useState(() => emptyCells(saved.board).length === 0);
   const [confirmRestart, setConfirmRestart] = useState(false);
   const [pendingRewards, setPendingRewards] = useState<Reward[]>([]);
   const [celebrating, setCelebrating] = useState(false);
@@ -115,19 +122,17 @@ export function GamePage({
   const { board, anim, poppedIndex, enqueue, aliveRef } = useTurnQueue({
     initialBoard: saved.board,
     onServed: () => {
-      servedRef.current += 1;
-      totalRef.current += 1;
-      setServed(servedRef.current);
-      persist({ served: servedRef.current });
-      onCakeServed();
-      if (servedRef.current % CELEBRATE_EVERY === 0) {
+      shownRef.current += 1;
+      setServed(shownRef.current);
+      setShownTotal(t => t + 1);
+      if (shownRef.current % CELEBRATE_EVERY === 0) {
         audio.playComplete();
         setCelebrating(true);
         setTimeout(() => aliveRef.current && setCelebrating(false), 3500);
       }
     },
-    onTurnDone: totalBefore => {
-      const crossed = rewardsBetween(totalBefore, totalRef.current);
+    onTurnDone: (totalBefore, totalAfter) => {
+      const crossed = rewardsBetween(totalBefore, totalAfter);
       if (crossed.length > 0) setPendingRewards(prev => [...prev, ...crossed]);
       if (!autoHelper && emptyCells(logicRef.current).length === 0) setBoardFull(true);
     },
@@ -139,9 +144,23 @@ export function GamePage({
     (index: number) => {
       audio.playNope();
       setNopeIndex(index);
-      setTimeout(() => aliveRef.current && setNopeIndex(null), 450);
+      clearTimeout(nopeTimer.current);
+      nopeTimer.current = setTimeout(() => aliveRef.current && setNopeIndex(null), 450);
     },
     [aliveRef],
+  );
+
+  /** Count a turn's cakes now; the lifetime totals either side go with it for the reward check. */
+  const countTurn = useCallback(
+    (steps: Step[]) => {
+      const n = countServed(steps);
+      const totalBefore = totalRef.current;
+      servedRef.current += n;
+      totalRef.current += n;
+      if (n > 0) onCakesServed(n);
+      return { totalBefore, totalAfter: totalRef.current };
+    },
+    [onCakesServed],
   );
 
   const inputLocked = boardFull || confirmRestart || pendingRewards.length > 0;
@@ -162,10 +181,11 @@ export function GamePage({
       nextTray[trayIndex] = generateCake(level, result.board);
       setTray(nextTray);
       setTurns(turns + 1);
-      persist({ board: result.board, tray: nextTray, turns: turns + 1 });
-      enqueue({ steps: result.steps, before: logic, totalBefore: totalRef.current });
+      const totals = countTurn(result.steps);
+      persist({ board: result.board, tray: nextTray, turns: turns + 1, served: servedRef.current });
+      enqueue({ steps: result.steps, before: logic, ...totals });
     },
-    [inputLocked, tray, turns, autoHelper, level, nope, enqueue, persist],
+    [inputLocked, tray, turns, autoHelper, level, nope, enqueue, persist, countTurn],
   );
 
   const emptyCount = emptyCells(logicRef.current).length;
@@ -184,10 +204,11 @@ export function GamePage({
       const readyAt = turns + BELL_COOLDOWN_TURNS;
       setBellReadyAt(readyAt);
       setBoardFull(false);
-      persist({ board: result.board, bellReadyAt: readyAt });
-      enqueue({ steps: result.steps, before: logic, totalBefore: totalRef.current });
+      const totals = countTurn(result.steps);
+      persist({ board: result.board, bellReadyAt: readyAt, served: servedRef.current });
+      enqueue({ steps: result.steps, before: logic, ...totals });
     },
-    [bellReady, boardHasCakes, pendingRewards.length, turns, enqueue, persist],
+    [bellReady, boardHasCakes, pendingRewards.length, turns, enqueue, persist, countTurn],
   );
 
   const toggleSound = useCallback(() => {
@@ -282,7 +303,7 @@ export function GamePage({
 
       {/* Progress to the next reward */}
       <div className="px-3 pb-1 max-w-xl w-full mx-auto">
-        <RewardBar totalServed={totalRef.current} compact />
+        <RewardBar totalServed={shownTotal} compact />
       </div>
 
       {/* Board */}

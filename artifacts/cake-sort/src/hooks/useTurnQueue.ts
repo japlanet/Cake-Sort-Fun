@@ -8,16 +8,17 @@ export interface Turn {
   steps: Step[];
   /** The settled board before this turn; animations start from it. */
   before: Board;
-  /** Lifetime cakes served before this turn, for reward checks afterwards. */
+  /** Lifetime cakes served before and after this turn, for reward checks afterwards. */
   totalBefore: number;
+  totalAfter: number;
 }
 
 interface Options {
   initialBoard: Board;
-  /** A cake was served on screen. */
+  /** A cake was served on screen (it was already counted when the turn was queued). */
   onServed: () => void;
   /** A whole turn's animation has finished. */
-  onTurnDone: (totalBefore: number) => void;
+  onTurnDone: (totalBefore: number, totalAfter: number) => void;
 }
 
 function wait(ms: number) {
@@ -94,7 +95,7 @@ export function useTurnQueue({ initialBoard, onServed, onTurnDone }: Options) {
     while (queueRef.current.length > 0 && aliveRef.current) {
       const turn = queueRef.current.shift()!;
       await playSteps(turn.steps, turn.before);
-      if (aliveRef.current) callbacks.current.onTurnDone(turn.totalBefore);
+      if (aliveRef.current) callbacks.current.onTurnDone(turn.totalBefore, turn.totalAfter);
     }
     drainingRef.current = false;
   }, [playSteps]);

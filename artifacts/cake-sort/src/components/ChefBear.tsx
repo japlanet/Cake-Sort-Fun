@@ -6,6 +6,8 @@ export type BearMood = "sleep" | "watch" | "ready";
 interface ChefBearProps {
   mood: BearMood;
   size: number;
+  /** Standing in the gap beside the tray rather than peeking over its left end. */
+  side: boolean;
   /** Tucked fully away while he is busy at a plate. */
   hidden: boolean;
   onTap: () => void;
@@ -13,12 +15,12 @@ interface ChefBearProps {
 
 const POSE: Record<BearMood, BearPose> = { sleep: "sleep", watch: "watch", ready: "wave" };
 
-/** Chef Bear lives behind the tray and peeks out as the plates fill up. */
-export function ChefBear({ mood, size, hidden, onTap }: ChefBearProps) {
+/** Chef Bear stands beside the tray (or, on a narrow screen, peeks over its left end) and wakes as the plates fill up. */
+export function ChefBear({ mood, size, side, hidden, onTap }: ChefBearProps) {
   return (
     <button
       type="button"
-      className={`bear-corner bear-${hidden ? "hidden" : mood}`}
+      className={`bear-corner ${side ? "bear-side" : ""} bear-${hidden ? "hidden" : mood}`}
       style={{ width: size, height: size }}
       onClick={onTap}
       aria-label={mood === "ready" ? "Chef Bear is ready to help, tap him" : mood === "watch" ? "Chef Bear is watching" : "Chef Bear is asleep"}

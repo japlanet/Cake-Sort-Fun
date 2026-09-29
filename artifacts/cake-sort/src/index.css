@@ -417,6 +417,13 @@ body {
 .bear-hidden { transform: translateY(110%); opacity: 0; }
 .bear-hidden .bear-bubble { opacity: 0; }
 
+/* Beside the tray: out in the open, left of it, so he never covers a plate. His pose shows his mood. */
+.bear-corner.bear-side { left: auto; right: calc(100% + 6px); bottom: 0; }
+.bear-side.bear-sleep, .bear-side.bear-watch, .bear-side.bear-ready { transform: none; }
+.bear-side.bear-hidden { transform: translateY(25%); opacity: 0; }
+/* The Zs or the bell float above his head, so they stay on screen at the left edge. */
+.bear-side .bear-bubble { right: auto; left: 55%; top: -30%; }
+
 @keyframes bear-breathe {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(2px) scale(1.03); }

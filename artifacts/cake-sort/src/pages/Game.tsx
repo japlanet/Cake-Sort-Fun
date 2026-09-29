@@ -20,7 +20,7 @@ import type { Board, Cake, Flavor, LevelConfig, Step } from "@/game/types";
 import { loadGame, storeGame } from "@/game/save";
 import type { SavedGame } from "@/game/save";
 import { audio } from "@/audio/engine";
-import { useBoardFit, useTraySize } from "@/hooks/useBoardFit";
+import { useBoardFit, useBearSpot, useTraySize } from "@/hooks/useBoardFit";
 import { useTurnQueue } from "@/hooks/useTurnQueue";
 import { useCakeDrag } from "@/hooks/useCakeDrag";
 import { useStoredFlag } from "@/hooks/useStoredFlag";
@@ -228,6 +228,7 @@ export function GamePage({
   const boardRef = useRef<HTMLDivElement | null>(null);
   const cellSize = useBoardFit(areaRef, level.rows, level.cols, GAP);
   const traySize = useTraySize();
+  const bearSpot = useBearSpot(traySize);
   const ghostSize = Math.round(cellSize * 1.1);
 
   const getBoard = useCallback(() => logicRef.current, []);
@@ -346,10 +347,10 @@ export function GamePage({
         </div>
       </div>
 
-      {/* Tray, with Chef Bear tucked behind it */}
+      {/* Tray, with Chef Bear beside it (or tucked behind its left end on narrow screens) */}
       <div className="safe-bottom px-3 pt-2">
         <div className="relative max-w-xl mx-auto">
-          <ChefBear mood={bearMood} size={Math.round(traySize * 1.15)} hidden={anim?.type === "helper"} onTap={() => callHelper()} />
+          <ChefBear mood={bearMood} size={bearSpot.size} side={bearSpot.side} hidden={anim?.type === "helper"} onTap={() => callHelper()} />
           <div className="tray-wood relative z-10 rounded-3xl px-4 pt-4 pb-3">
             <Tray
               tray={tray}

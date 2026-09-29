@@ -47,3 +47,34 @@ export function useTraySize(): number {
   }, []);
   return size;
 }
+
+/** The tray's width: the max-w-xl (36rem) box inside the px-3 page padding. */
+const TRAY_MAX = 576;
+const PAGE_PAD = 24;
+/** Narrowest gap beside the tray that Chef Bear can stand in. */
+const MIN_BEAR = 70;
+
+export interface BearSpot {
+  /** Stand beside the tray (clear of the plates), or peek over its left end when there is no room. */
+  side: boolean;
+  size: number;
+}
+
+/** Where Chef Bear stands: in the gap left of the tray when there is one, so he never covers a plate. */
+export function useBearSpot(traySize: number): BearSpot {
+  const compute = (): BearSpot => {
+    const w = window.innerWidth;
+    const gap = (w - Math.min(w - PAGE_PAD, TRAY_MAX)) / 2;
+    const full = Math.round(traySize * 1.15);
+    return gap - 10 >= MIN_BEAR ? { side: true, size: Math.min(full, Math.floor(gap - 10)) } : { side: false, size: full };
+  };
+  const [spot, setSpot] = useState(compute);
+  useEffect(() => {
+    const onResize = () => setSpot(compute());
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [traySize]);
+  return spot;
+}

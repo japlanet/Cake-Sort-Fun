@@ -82,7 +82,7 @@ class AudioEngine {
   unlock(): void {
     const ctx = this.ensure();
     if (!ctx) return;
-    void ctx.resume();
+    ctx.resume().catch(() => undefined);
     this.unlocked = true;
     if (this.musicEnabled) this.startMusic();
   }
@@ -90,15 +90,22 @@ class AudioEngine {
   /** Pause everything while the page is hidden; resume when it comes back. */
   setHidden(hidden: boolean): void {
     if (!this.ctx || !this.unlocked) return;
-    if (hidden) void this.ctx.suspend();
-    else void this.ctx.resume();
+    if (hidden) this.ctx.suspend().catch(() => undefined);
+    else this.ctx.resume().catch(() => undefined);
   }
 
   // -----------------------------------------------------------------------
   // Building blocks
   // -----------------------------------------------------------------------
 
+  /** Sound is an extra: if the iPad's audio is interrupted and a call throws, skip the sound, never the game. */
   private tone(o: ToneOptions): void {
+    try {
+      this.toneUnsafe(o);
+    } catch {}
+  }
+
+  private toneUnsafe(o: ToneOptions): void {
     const ctx = this.ctx;
     const dest = o.dest ?? this.sfxGain;
     if (!ctx || !dest) return;
@@ -138,6 +145,12 @@ class AudioEngine {
   }
 
   private burst(duration: number, start: number, gain: number, filterFreq: number, type: BiquadFilterType = "lowpass"): void {
+    try {
+      this.burstUnsafe(duration, start, gain, filterFreq, type);
+    } catch {}
+  }
+
+  private burstUnsafe(duration: number, start: number, gain: number, filterFreq: number, type: BiquadFilterType = "lowpass"): void {
     const ctx = this.ctx;
     if (!ctx || !this.noise || !this.sfxGain) return;
     const t0 = ctx.currentTime + start;

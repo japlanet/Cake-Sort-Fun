@@ -9,6 +9,7 @@ import { RewardPopup } from "@/components/RewardPopup";
 import { RewardBar } from "@/components/RewardBar";
 import { ChefBear } from "@/components/ChefBear";
 import type { BearMood } from "@/components/ChefBear";
+import { BearArt } from "@/components/BearArt";
 import { CELEBRATE_EVERY, LEVELS } from "@/game/levels";
 import { THEMES } from "@/game/themes";
 import type { ThemeId } from "@/game/themes";
@@ -297,7 +298,7 @@ export function GamePage({
           }`}
           aria-label="Ring the bell for Chef Bear"
         >
-          <span role="img" aria-hidden="true">🐻</span>
+          <BearArt pose="icon" style={{ width: "1.2em", height: "1.2em" }} />
         </button>
       </div>
 

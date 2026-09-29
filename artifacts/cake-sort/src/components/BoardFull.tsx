@@ -1,3 +1,5 @@
+import { BearArt } from "./BearArt";
+
 interface BoardFullProps {
   onCallHelper: () => void;
   onRetry: () => void;
@@ -18,7 +20,10 @@ export function BoardFull({ onCallHelper, onRetry }: BoardFullProps) {
             className="game-btn candy candy-orange w-full py-4 rounded-2xl bg-gradient-to-r from-amber-300 to-orange-400 text-white font-black text-2xl"
             aria-label="Ask Chef Bear for help"
           >
-            🐻 Help!
+            <span className="inline-flex items-center justify-center gap-2">
+              <BearArt pose="icon" style={{ width: "1.4em", height: "1.4em" }} />
+              Help!
+            </span>
           </button>
           <button
             onClick={onRetry}

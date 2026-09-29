@@ -1,3 +1,6 @@
+import { BearArt, HelpBell, SleepyZs } from "./BearArt";
+import type { BearPose } from "./BearArt";
+
 export type BearMood = "sleep" | "watch" | "ready";
 
 interface ChefBearProps {
@@ -8,7 +11,7 @@ interface ChefBearProps {
   onTap: () => void;
 }
 
-const BUBBLE: Record<BearMood, string> = { sleep: "💤", watch: "👀", ready: "🔔" };
+const POSE: Record<BearMood, BearPose> = { sleep: "sleep", watch: "watch", ready: "wave" };
 
 /** Chef Bear lives behind the tray and peeks out as the plates fill up. */
 export function ChefBear({ mood, size, hidden, onTap }: ChefBearProps) {
@@ -20,25 +23,14 @@ export function ChefBear({ mood, size, hidden, onTap }: ChefBearProps) {
       onClick={onTap}
       aria-label={mood === "ready" ? "Chef Bear is ready to help, tap him" : mood === "watch" ? "Chef Bear is watching" : "Chef Bear is asleep"}
     >
-      <span className="bear-bubble" style={{ fontSize: size * 0.3 }} aria-hidden="true">
-        {BUBBLE[mood]}
-      </span>
-      <span className="bear-body" style={{ fontSize: size * 0.72 }}>
-        <svg
-          viewBox="0 0 40 26"
-          style={{ position: "absolute", left: "50%", top: "-30%", width: "80%", transform: "translateX(-50%) rotate(-8deg)" }}
-          aria-hidden="true"
-        >
-          <ellipse cx="20" cy="22" rx="14" ry="3.5" fill="#e8e2da" />
-          <rect x="7" y="15" width="26" height="8" rx="3" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <circle cx="12" cy="11" r="7" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <circle cx="28" cy="11" r="7" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <circle cx="20" cy="8" r="8" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <rect x="8" y="14" width="24" height="4" fill="#ffffff" />
-        </svg>
-        <span role="img" aria-hidden="true">
-          🐻
+      {/* Watching needs no bubble: his eyes are on the plates. */}
+      {mood !== "watch" && (
+        <span className="bear-bubble" style={{ width: size * 0.38, height: size * 0.38 }} aria-hidden="true">
+          {mood === "sleep" ? <SleepyZs style={{ width: "100%", height: "100%" }} /> : <HelpBell style={{ width: "100%", height: "100%" }} />}
         </span>
+      )}
+      <span className="bear-body" style={{ width: size, height: size }}>
+        <BearArt pose={POSE[mood]} style={{ width: "100%", height: "100%" }} />
       </span>
     </button>
   );

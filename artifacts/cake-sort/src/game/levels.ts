@@ -1,25 +1,38 @@
 import type { Flavor, LevelConfig } from "./types.ts";
 
+/**
+ * A second cue drawn inside every wedge so flavours that sit near each other in
+ * colour still look different: seeds, a rind, chips, stripes and so on.
+ */
+export type FlavorPattern = "plain" | "seeds" | "rind" | "chips" | "stripes" | "segments" | "blush" | "kiwi" | "berries";
+
 export interface FlavorStyle {
   emoji: string;
-  /** Wedge fill. */
+  /** Wedge fill (frosting). The cake side underneath is a darker shade of it. */
   color: string;
+  /** What is drawn on top of the frosting. */
+  pattern: FlavorPattern;
   name: string;
 }
 
+/**
+ * Each flavour gets its own hue and lightness so a 4-5 year old can sort by colour alone,
+ * even with two flavours side by side on a small Hard-board cake. None of them is close
+ * to the cream plate.
+ */
 export const FLAVORS: Record<Flavor, FlavorStyle> = {
-  strawberry: { emoji: "🍓", color: "#ff8fab", name: "Strawberry" },
-  chocolate: { emoji: "🍫", color: "#a9744f", name: "Chocolate" },
-  rainbow: { emoji: "🌈", color: "#f6ecdc", name: "Rainbow" },
-  lemon: { emoji: "🍋", color: "#ffe066", name: "Lemon" },
-  kiwi: { emoji: "🥝", color: "#9be564", name: "Kiwi" },
-  blueberry: { emoji: "🫐", color: "#8fb8ff", name: "Blueberry" },
-  orange: { emoji: "🍊", color: "#ffb266", name: "Orange" },
-  grape: { emoji: "🍇", color: "#c39bff", name: "Grape" },
-  cherry: { emoji: "🍒", color: "#ff5c7a", name: "Cherry" },
-  peach: { emoji: "🍑", color: "#ffc2a3", name: "Peach" },
-  watermelon: { emoji: "🍉", color: "#ff8c94", name: "Watermelon" },
-  cookie: { emoji: "🍪", color: "#d9a066", name: "Cookie" },
+  strawberry: { emoji: "🍓", color: "#ff8cc6", pattern: "seeds", name: "Strawberry" },
+  chocolate: { emoji: "🍫", color: "#6b3a1f", pattern: "plain", name: "Chocolate" },
+  rainbow: { emoji: "🌈", color: "#ff5f5f", pattern: "stripes", name: "Rainbow" },
+  lemon: { emoji: "🍋", color: "#ffe047", pattern: "plain", name: "Lemon" },
+  kiwi: { emoji: "🥝", color: "#86d44a", pattern: "kiwi", name: "Kiwi" },
+  blueberry: { emoji: "🫐", color: "#4f8ff0", pattern: "berries", name: "Blueberry" },
+  orange: { emoji: "🍊", color: "#ff8c0a", pattern: "segments", name: "Orange" },
+  grape: { emoji: "🍇", color: "#9d5ce6", pattern: "plain", name: "Grape" },
+  cherry: { emoji: "🍒", color: "#c41e3a", pattern: "plain", name: "Cherry" },
+  peach: { emoji: "🍑", color: "#ffbfa6", pattern: "blush", name: "Peach" },
+  watermelon: { emoji: "🍉", color: "#ff5a6e", pattern: "rind", name: "Watermelon" },
+  cookie: { emoji: "🍪", color: "#b87a3d", pattern: "chips", name: "Cookie" },
 };
 
 /** Flavours a brand-new player starts with, in shelf order. Rainbow is in from day one. */

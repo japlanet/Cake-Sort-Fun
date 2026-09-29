@@ -1,10 +1,12 @@
+import { BearArt } from "./BearArt";
+
 interface HelperOverlayProps {
   x: number;
   y: number;
   size: number;
 }
 
-/** Chef Bear, hat and all, pops up over a plate and sprinkles it. */
+/** Chef Bear, hat and all, pops up over a plate with both paws up and sprinkles it. */
 export function HelperOverlay({ x, y, size }: HelperOverlayProps) {
   const sparkles = ["✨", "⭐", "✨", "🌟", "💫", "✨"];
   return (
@@ -23,22 +25,8 @@ export function HelperOverlay({ x, y, size }: HelperOverlayProps) {
           {s}
         </span>
       ))}
-      <div className="helper-bear" style={{ fontSize: size * 0.6, lineHeight: 1, position: "relative" }}>
-        <svg
-          viewBox="0 0 40 26"
-          style={{ position: "absolute", left: "50%", top: "-32%", width: "78%", transform: "translateX(-50%) rotate(-8deg)" }}
-          aria-hidden="true"
-        >
-          <ellipse cx="20" cy="22" rx="14" ry="3.5" fill="#e8e2da" />
-          <rect x="7" y="15" width="26" height="8" rx="3" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <circle cx="12" cy="11" r="7" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <circle cx="28" cy="11" r="7" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <circle cx="20" cy="8" r="8" fill="#ffffff" stroke="#d9d1c7" strokeWidth="1" />
-          <rect x="8" y="14" width="24" height="4" fill="#ffffff" />
-        </svg>
-        <span role="img" aria-label="Chef Bear">
-          🐻
-        </span>
+      <div className="helper-bear" role="img" aria-label="Chef Bear" style={{ width: size * 0.9, height: size * 0.9, position: "relative" }}>
+        <BearArt pose="help" style={{ width: "100%", height: "100%" }} />
       </div>
     </div>
   );

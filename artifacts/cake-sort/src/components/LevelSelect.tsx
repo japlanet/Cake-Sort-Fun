@@ -5,6 +5,7 @@ import { RewardBar } from "./RewardBar";
 import { savedSitting } from "@/game/save";
 import { useState } from "react";
 import { ParentPanel } from "./ParentPanel";
+import { BearArt } from "./BearArt";
 
 interface LevelSelectProps {
   onSelectLevel: (levelId: number) => void;
@@ -106,8 +107,8 @@ export function LevelSelect({
           }`}
           aria-label={autoHelper ? "Chef Bear helps automatically. Tap to turn off." : "Chef Bear only helps when called. Tap to turn on."}
         >
-          <span className="text-3xl" role="img" aria-hidden="true">
-            🐻
+          <span className="text-3xl" aria-hidden="true">
+            <BearArt pose="icon" style={{ width: "1.2em", height: "1.2em" }} />
           </span>
           <span>{autoHelper ? "Chef Bear helps" : "Chef Bear waits"}</span>
           <span
